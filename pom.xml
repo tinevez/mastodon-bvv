@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	
+	<parent>
+		<groupId>org.scijava</groupId>
+		<artifactId>pom-scijava</artifactId>
+		<version>37.0.0</version>
+	</parent>
+	
+	<groupId>org.mastodon</groupId>
+	<artifactId>mastodon-bvv</artifactId>
+	<version>1.0.0-beta-1</version>
+
+	<name>Mastodon App</name>
+	<description>Mastodon-BVV – 3D visualization for images and tracking data.</description>
+	<url>https://github.com/mastodon-sc/mastodon-bvv</url>
+	<inceptionYear>2024</inceptionYear>
+	<organization>
+		<name>Mastodon Science</name>
+		<url>https://mastodon.org</url>
+	</organization>
+	<licenses>
+		<license>
+			<name>not licensed yet</name>
+			<distribution>repo</distribution>
+		</license>
+	</licenses>
+
+	<properties>
+	
+		<mastodon.group>org.mastodon</mastodon.group>
+		<mastodon.version>1.0.0-beta-31-SNAPSHOT</mastodon.version>
+		<imglib2-mesh.version>1.0.0</imglib2-mesh.version>
+		<bigvolumeviewer.version>0.3.1</bigvolumeviewer.version>
+		<package-name>org.mastodon</package-name>
+
+		<license.licenseName>bsd_2</license.licenseName>
+		<license.projectName>Mastodon</license.projectName>
+		<license.organizationName>Mastodon authors</license.organizationName>
+		<license.copyrightOwners>Tobias Pietzsch, Jean-Yves Tinevez</license.copyrightOwners>
+
+		<releaseProfiles>deploy-to-scijava</releaseProfiles>
+
+	</properties>
+
+
+
+	<mailingLists>
+		<mailingList>
+			<name>Image.sc Forum</name>
+			<archive>https://forum.image.sc/tag/mastodon</archive>
+		</mailingList>
+	</mailingLists>
+
+	<scm>
+		<connection>scm:git:git://github.com/mastodon-sc/mastodon-bvv</connection>
+		<developerConnection>scm:git:git@github.com:mastodon-sc/mastodon-bvv</developerConnection>
+		<url>https://github.com/mastodon-sc/mastodon-bvv</url>
+	</scm>
+	<issueManagement>
+		<system>GitHub</system>
+		<url>https://github.com/mastodon-sc/mastodon-bvv/issues</url>
+	</issueManagement>
+	<ciManagement>
+		<system>Travis CI</system>
+		<url>https://travis-ci.com/mastodon-sc/mastodon-bvv</url>
+	</ciManagement>
+
+	<developers>
+		<developer>
+			<id>tinevez</id>
+			<name>Jean-Yves Tinevez</name>
+			<email>jean-yves.tinevez@pasteur.fr</email>
+			<url>https://research.pasteur.fr/en/member/jean-yves-tinevez/</url>
+			<organization>Institut Pasteur</organization>
+			<organizationUrl>http://www.pasteur.fr/</organizationUrl>
+			<roles>
+				<role>developer</role>
+			</roles>
+		</developer>
+		<developer>
+			<id>tpietzsch</id>
+			<name>Tobias Pietzsch</name>
+			<email>pietzsch@mpi-cbg.de</email>
+			<url>https://imagej.net/User:Pietzsch</url>
+			<organization>MPI-CBG</organization>
+			<organizationUrl>http://www.mpi-cbg.de/</organizationUrl>
+			<roles>
+				<role>lead</role>
+				<role>developer</role>
+			</roles>
+		</developer>
+	</developers>
+
+	<contributors>
+		<contributor>
+			<name>grrrr</name>
+		</contributor>
+	</contributors>
+
+	<repositories>
+		<repository>
+			<id>scijava.public</id>
+			<url>https://maven.scijava.org/content/groups/public</url>
+		</repository>
+	</repositories>
+
+	<dependencies>
+
+		<dependency>
+			<groupId>${mastodon.group}</groupId>
+			<artifactId>mastodon</artifactId>
+			<version>${mastodon.version}</version>
+		</dependency>
+
+		<dependency>
+			<groupId>sc.fiji</groupId>
+			<artifactId>bigvolumeviewer</artifactId>
+			<version>${bigvolumeviewer.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>net.imglib2</groupId>
+			<artifactId>imglib2-mesh</artifactId>
+			<version>${imglib2-mesh.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.jogamp.jogl</groupId>
+			<artifactId>jogl-all</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.jogamp.gluegen</groupId>
+			<artifactId>gluegen-rt</artifactId>
+		</dependency>			
+		<dependency>
+			<groupId>org.jogamp.gluegen</groupId>
+			<artifactId>gluegen-rt</artifactId>
+			<classifier>${scijava.natives.classifier.gluegen}</classifier>
+		</dependency>
+		<dependency>
+			<groupId>org.jogamp.jogl</groupId>
+			<artifactId>jogl-all</artifactId>
+			<classifier>${scijava.natives.classifier.jogl}</classifier>
+		</dependency>
+		
+		<!-- Test scope -->
+		<dependency>
+			<groupId>net.imagej</groupId>
+			<artifactId>imagej</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>sc.fiji</groupId>
+			<artifactId>fiji</artifactId>
+			<scope>test</scope>
+		</dependency>
+		
+	</dependencies>
+</project>
