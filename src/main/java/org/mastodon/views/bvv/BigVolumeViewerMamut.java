@@ -44,7 +44,6 @@ import bdv.viewer.ViewerState;
 import bvv.core.BigVolumeViewer;
 import bvv.core.KeyConfigContexts;
 import bvv.core.KeyConfigScopes;
-import bvv.core.VolumeViewerFrame;
 import bvv.core.VolumeViewerOptions;
 import bvv.core.VolumeViewerPanel;
 import dev.dirs.ProjectDirectories;
@@ -57,7 +56,7 @@ public class BigVolumeViewerMamut
 	public static String configDir = ProjectDirectories.from( "sc", "fiji", "bigvolumeviewer" ).configDir;
 
 	// ... BDV ...
-	private final VolumeViewerFrame viewerFrame;
+	private final VolumeViewerFrameMamut viewerFrame;
 	private final VolumeViewerPanel viewer;
 	private final ManualTransformation manualTransformation;
 	private final Bookmarks bookmarks;
@@ -107,7 +106,7 @@ public class BigVolumeViewerMamut
 		if ( inputTriggerConfig == null )
 			inputTriggerConfig = keymap.getConfig();
 
-		viewerFrame = new VolumeViewerFrame( sources, numTimepoints, cacheControl, options.inputTriggerConfig( inputTriggerConfig ) );
+		viewerFrame = new VolumeViewerFrameMamut( sources, numTimepoints, cacheControl, options.inputTriggerConfig( inputTriggerConfig ) );
 		if ( windowTitle != null )
 			viewerFrame.setTitle( windowTitle );
 		viewer = viewerFrame.getViewerPanel();
@@ -187,7 +186,7 @@ public class BigVolumeViewerMamut
 		keymap.updateListeners().add( () -> {
 			navActions.updateKeyConfig( keymap.getConfig() );
 			bvvActions.updateKeyConfig( keymap.getConfig() );
-			viewerFrame.getTransformBehaviours().updateKeyConfig( keymap.getConfig() );
+//			viewerFrame.getTransformBehaviours().updateKeyConfig( keymap.getConfig() );
 		} );
 	}
 
@@ -208,7 +207,7 @@ public class BigVolumeViewerMamut
 		return viewer;
 	}
 
-	public VolumeViewerFrame getViewerFrame()
+	public VolumeViewerFrameMamut getViewerFrame()
 	{
 		return viewerFrame;
 	}
