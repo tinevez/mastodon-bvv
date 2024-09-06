@@ -26,18 +26,17 @@ import bdv.viewer.NavigationActions;
 import bvv.core.VolumeViewerPanel;
 import net.imglib2.realtransform.AffineTransform3D;
 
-public class Playground extends MamutView< OverlayGraphWrapper< Spot, Link >, OverlayVertexWrapper< Spot, Link >, OverlayEdgeWrapper< Spot, Link > >
+public class MamutViewBvv extends MamutView< OverlayGraphWrapper< Spot, Link >, OverlayVertexWrapper< Spot, Link >, OverlayEdgeWrapper< Spot, Link > >
 {
 
 	private static int bvvName = 1;
 
-	public Playground(
+	public MamutViewBvv(
 			final ProjectModel projectModel,
 			final OverlayGraphWrapper< Spot, Link > viewGraph,
 			final String[] keyConfigContexts )
 	{
 		super( projectModel, createViewGraph( projectModel ), keyConfigContexts );
-
 		final SharedBigDataViewerData bdvData = projectModel.getSharedBdvData();
 
 		final String windowTitle = "BigVolumeViewer " + ( bvvName++ );
@@ -97,7 +96,7 @@ public class Playground extends MamutView< OverlayGraphWrapper< Spot, Link >, Ov
 				{
 					final ProjectModel projectModel = ProjectLoader.open( projectPath, context, false, false );
 
-					new Playground( projectModel, null, new String[] { KeyConfigContexts.BIGDATAVIEWER } );
+					new MamutViewBvv( projectModel, null, new String[] { KeyConfigContexts.BIGDATAVIEWER } );
 
 				}
 				catch ( final Exception e )
