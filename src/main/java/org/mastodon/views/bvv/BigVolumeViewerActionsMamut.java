@@ -40,8 +40,6 @@ import static bdv.BigDataViewerActions.GO_TO_BOOKMARK_ROTATION;
 import static bdv.BigDataViewerActions.GO_TO_BOOKMARK_ROTATION_KEYS;
 import static bdv.BigDataViewerActions.LOAD_SETTINGS;
 import static bdv.BigDataViewerActions.LOAD_SETTINGS_KEYS;
-import static bdv.BigDataViewerActions.MANUAL_TRANSFORM;
-import static bdv.BigDataViewerActions.MANUAL_TRANSFORM_KEYS;
 import static bdv.BigDataViewerActions.PREFERENCES_DIALOG;
 import static bdv.BigDataViewerActions.PREFERENCES_DIALOG_KEYS;
 import static bdv.BigDataViewerActions.SAVE_SETTINGS;
@@ -49,8 +47,6 @@ import static bdv.BigDataViewerActions.SAVE_SETTINGS_KEYS;
 import static bdv.BigDataViewerActions.SET_BOOKMARK;
 import static bdv.BigDataViewerActions.SET_BOOKMARK_KEYS;
 import static bdv.BigDataViewerActions.bookmarks;
-import static bdv.BigDataViewerActions.manualTransform;
-import static bdv.BigDataViewerActions.toggleDialogAction;
 import static bdv.TransformEventHandler3D.DRAG_ROTATE;
 import static bdv.TransformEventHandler3D.DRAG_ROTATE_FAST;
 import static bdv.TransformEventHandler3D.DRAG_ROTATE_FAST_KEYS;
@@ -147,11 +143,11 @@ import bvv.core.KeyConfigScopes;
 /**
  * Copied from {@link BigVolumeViewerActions}.
  */
-public class BigVolumeViewerMamutActions
+public class BigVolumeViewerActionsMamut
 {
 	/**
 	 * Command descriptions for commands re-used from {@link
-	 * BigVolumeViewerMamutActions}, {@link bdv.tools.CloseWindowActions}, {@link
+	 * BigVolumeViewerActionsMamut}, {@link bdv.tools.CloseWindowActions}, {@link
 	 * bdv.viewer.NavigationActions}, {@link bdv.TransformEventHandler3D}.
 	 * <p>
 	 * The descriptions are re-declared here with scope {@link
@@ -170,7 +166,6 @@ public class BigVolumeViewerMamutActions
 		{
 			// Commands re-used from bdv.BigDataViewerActions
 			descriptions.add( BRIGHTNESS_SETTINGS, BRIGHTNESS_SETTINGS_KEYS, "Show the Brightness&Colors dialog." );
-			descriptions.add( MANUAL_TRANSFORM, MANUAL_TRANSFORM_KEYS, "Toggle manual transformation mode." );
 			descriptions.add( SAVE_SETTINGS, SAVE_SETTINGS_KEYS, "Save the BigDataViewer settings to a settings.xml file." );
 			descriptions.add( LOAD_SETTINGS, LOAD_SETTINGS_KEYS, "Load the BigDataViewer settings from a settings.xml file." );
 			descriptions.add( EXPAND_CARDS, EXPAND_CARDS_KEYS, "Expand and focus the BigDataViewer card panel" );
@@ -256,12 +251,7 @@ public class BigVolumeViewerMamutActions
 	 */
 	public static void install( final Actions actions, final BigVolumeViewerMamut bvv )
 	{
-		toggleDialogAction( actions, bvv.brightnessDialog, BRIGHTNESS_SETTINGS, BRIGHTNESS_SETTINGS_KEYS );
-		toggleDialogAction( actions, bvv.preferencesDialog, PREFERENCES_DIALOG, PREFERENCES_DIALOG_KEYS );
 		bookmarks( actions, bvv.bookmarkEditor );
-		manualTransform( actions, bvv.manualTransformationEditor );
-		actions.runnableAction( bvv::loadSettings, LOAD_SETTINGS, LOAD_SETTINGS_KEYS );
-		actions.runnableAction( bvv::saveSettings, SAVE_SETTINGS, SAVE_SETTINGS_KEYS );
 		actions.runnableAction( bvv::expandAndFocusCardPanel, EXPAND_CARDS, EXPAND_CARDS_KEYS );
 		actions.runnableAction( bvv::collapseCardPanel, COLLAPSE_CARDS, COLLAPSE_CARDS_KEYS );
 	}

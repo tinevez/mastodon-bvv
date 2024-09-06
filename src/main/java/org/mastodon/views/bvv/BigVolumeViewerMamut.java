@@ -7,7 +7,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import javax.swing.JFileChooser;
-import javax.swing.SwingUtilities;
 import javax.swing.filechooser.FileFilter;
 
 import org.jdom2.Document;
@@ -17,34 +16,16 @@ import org.jdom2.input.SAXBuilder;
 import org.jdom2.output.Format;
 import org.jdom2.output.XMLOutputter;
 import org.mastodon.grouping.GroupHandle;
-import org.scijava.Context;
-import org.scijava.plugin.PluginService;
-import org.scijava.ui.behaviour.io.InputTriggerConfig;
-import org.scijava.ui.behaviour.io.gui.CommandDescriptionsBuilder;
-import org.scijava.ui.behaviour.util.Actions;
+import org.mastodon.views.bdv.SharedBigDataViewerData;
 
 import bdv.cache.CacheControl;
-import bdv.tools.PreferencesDialog;
 import bdv.tools.bookmarks.Bookmarks;
 import bdv.tools.bookmarks.BookmarksEditor;
-import bdv.tools.brightness.BrightnessDialog;
 import bdv.tools.brightness.ConverterSetup;
-import bdv.tools.brightness.MinMaxGroup;
-import bdv.tools.brightness.SetupAssignments;
-import bdv.tools.transformation.ManualTransformation;
-import bdv.tools.transformation.ManualTransformationEditor;
-import bdv.ui.appearance.AppearanceManager;
-import bdv.ui.appearance.AppearanceSettingsPage;
-import bdv.ui.keymap.Keymap;
-import bdv.ui.keymap.KeymapManager;
-import bdv.ui.keymap.KeymapSettingsPage;
 import bdv.viewer.ConverterSetups;
-import bdv.viewer.NavigationActions;
 import bdv.viewer.SourceAndConverter;
-import bdv.viewer.ViewerState;
+import bdv.viewer.ViewerOptions.Values;
 import bvv.core.BigVolumeViewer;
-import bvv.core.KeyConfigContexts;
-import bvv.core.KeyConfigScopes;
 import bvv.core.VolumeViewerOptions;
 import bvv.core.VolumeViewerPanel;
 import dev.dirs.ProjectDirectories;
@@ -59,70 +40,36 @@ public class BigVolumeViewerMamut
 	// ... BDV ...
 	private final VolumeViewerFrameMamut viewerFrame;
 	private final VolumeViewerPanel viewer;
-	private final ManualTransformation manualTransformation;
 	private final Bookmarks bookmarks;
-	private final SetupAssignments setupAssignments;
-	final BrightnessDialog brightnessDialog;
 
-	private final KeymapManager keymapManager;
-	private final AppearanceManager appearanceManager;
-	final PreferencesDialog preferencesDialog;
-	final ManualTransformationEditor manualTransformationEditor;
 	final BookmarksEditor bookmarkEditor;
 
 	private final JFileChooser fileChooser;
-	private File proposedSettingsFile;
 
-	/**
-	 *
-	 * @param converterSetups
-	 *            list of {@link ConverterSetup} that control min/max and color
-	 *            of sources.
-	 * @param sources
-	 *            the {@link SourceAndConverter sources} to display.
-	 * @param numTimepoints
-	 *            number of available timepoints.
-	 * @param cacheControl
-	 *            handle to cache. This is used to control io timing.
-	 * @param windowTitle
-	 *            title of the viewer window.
-	 * @param options
-	 *            optional parameters. See {@link VolumeViewerOptions}.
-	 */
+	private final SharedBigDataViewerData bdvData;
+
 	public BigVolumeViewerMamut(
-			final List< ConverterSetup > converterSetups,
-			final List< SourceAndConverter< ? > > sources,
-			final int numTimepoints,
-			final CacheControl cacheControl,
+			final SharedBigDataViewerData bdvData,
 			final String windowTitle,
-			final VolumeViewerOptions options,
 			final GroupHandle groupHandle )
 	{
-		final KeymapManager optionsKeymapManager = options.values.getKeymapManager();
-		final AppearanceManager optionsAppearanceManager = options.values.getAppearanceManager();
-		keymapManager = optionsKeymapManager != null ? optionsKeymapManager : createDefaultKeymapManager();
-		appearanceManager = optionsAppearanceManager != null ? optionsAppearanceManager : new AppearanceManager( configDir );
-
-		InputTriggerConfig inputTriggerConfig = options.values.getInputTriggerConfig();
-		final Keymap keymap = this.keymapManager.getForwardSelectedKeymap();
-		if ( inputTriggerConfig == null )
-			inputTriggerConfig = keymap.getConfig();
+		this.bdvData = bdvData;
+		final ArrayList< SourceAndConverter< ? > > sources = bdvData.getSources();
+		final int numTimepoints = bdvData.getNumTimepoints();
+		final CacheControl cacheControl = bdvData.getCache();
+		final List< ConverterSetup > converterSetups = bdvData.getConverterSetups().getConverterSetups( sources );
+		final VolumeViewerOptions options = getOptions( bdvData.getOptions().values );
 
 		viewerFrame = new VolumeViewerFrameMamut(
 				sources,
 				numTimepoints,
 				cacheControl,
-				optionsKeymapManager,
-				optionsAppearanceManager,
 				groupHandle,
-				options.inputTriggerConfig( inputTriggerConfig ) );
+				options );
 
 		if ( windowTitle != null )
 			viewerFrame.setTitle( windowTitle );
 		viewer = viewerFrame.getViewerPanel();
-
-		manualTransformation = new ManualTransformation( viewer );
-		manualTransformationEditor = new ManualTransformationEditor( viewer, viewerFrame.getKeybindings() );
 
 		bookmarks = new Bookmarks();
 		bookmarkEditor = new BookmarksEditor( viewer, viewerFrame.getKeybindings(), bookmarks );
@@ -138,16 +85,14 @@ public class BigVolumeViewerMamut
 			if ( setup != null )
 				setups.put( source, setup );
 		}
-
-		setupAssignments = new SetupAssignments( new ArrayList<>( converterSetups ), 0, 65535 );
-		if ( setupAssignments.getMinMaxGroups().size() > 0 )
-		{
-			final MinMaxGroup group = setupAssignments.getMinMaxGroups().get( 0 );
-			for ( final ConverterSetup setup : setupAssignments.getConverterSetups() )
-				setupAssignments.moveSetupToGroup( setup, group );
-		}
-
-		brightnessDialog = new BrightnessDialog( viewerFrame, setupAssignments );
+//
+//		setupAssignments = new SetupAssignments( new ArrayList<>( converterSetups ), 0, 65535 );
+//		if ( setupAssignments.getMinMaxGroups().size() > 0 )
+//		{
+//			final MinMaxGroup group = setupAssignments.getMinMaxGroups().get( 0 );
+//			for ( final ConverterSetup setup : setupAssignments.getConverterSetups() )
+//				setupAssignments.moveSetupToGroup( setup, group );
+//		}
 
 		fileChooser = new JFileChooser();
 		fileChooser.setFileFilter( new FileFilter()
@@ -176,40 +121,6 @@ public class BigVolumeViewerMamut
 				return false;
 			}
 		} );
-
-		preferencesDialog = new PreferencesDialog( viewerFrame, keymap, new String[] { KeyConfigContexts.BIGVOLUMEVIEWER } );
-		preferencesDialog.addPage( new AppearanceSettingsPage( "Appearance", appearanceManager ) );
-		preferencesDialog.addPage( new KeymapSettingsPage( "Keymap", this.keymapManager, this.keymapManager.getCommandDescriptions() ) );
-		appearanceManager.appearance().updateListeners().add( viewerFrame::repaint );
-		appearanceManager.addLafComponent( fileChooser );
-		SwingUtilities.invokeLater(() -> appearanceManager.updateLookAndFeel());
-
-		final Actions navActions = new Actions( inputTriggerConfig, KeyConfigContexts.BIGVOLUMEVIEWER, "navigation" );
-		navActions.install( viewerFrame.getKeybindings(), "navigation" );
-		NavigationActions.install( navActions, viewer, false );
-
-		final Actions bvvActions = new Actions( inputTriggerConfig, KeyConfigContexts.BIGVOLUMEVIEWER );
-		bvvActions.install( viewerFrame.getKeybindings(), "bdv" );
-
-		BigVolumeViewerMamutActions.install( bvvActions, this );
-
-		keymap.updateListeners().add( () -> {
-			navActions.updateKeyConfig( keymap.getConfig() );
-			bvvActions.updateKeyConfig( keymap.getConfig() );
-//			viewerFrame.getTransformBehaviours().updateKeyConfig( keymap.getConfig() );
-		} );
-	}
-
-	private static KeymapManager createDefaultKeymapManager()
-	{
-		final KeymapManager manager = new KeymapManager( configDir );
-		final CommandDescriptionsBuilder builder = new CommandDescriptionsBuilder();
-		final Context context = new Context( PluginService.class );
-		context.inject( builder );
-		builder.discoverProviders( KeyConfigScopes.BIGVOLUMEVIEWER );
-		context.dispose();
-		manager.setCommandDescriptions( builder.build() );
-		return manager;
 	}
 
 	public VolumeViewerPanel getViewer()
@@ -227,43 +138,37 @@ public class BigVolumeViewerMamut
 		return viewerFrame.getConverterSetups();
 	}
 
-	/**
-	 * @deprecated Instead {@code getViewer().state()} returns the {@link ViewerState} that can be modified directly.
-	 */
-	@Deprecated
-	public SetupAssignments getSetupAssignments()
+	protected void trySaveSettings()
 	{
-		return setupAssignments;
+		fileChooser.setSelectedFile( bdvData.getProposedSettingsFile() );
+		final int returnVal = fileChooser.showSaveDialog( null );
+		if ( returnVal == JFileChooser.APPROVE_OPTION )
+		{
+			final File file = fileChooser.getSelectedFile();
+			bdvData.setProposedSettingsFile( file );
+			try
+			{
+				saveSettings( file.getCanonicalPath() );
+			}
+			catch ( final IOException e )
+			{
+				e.printStackTrace();
+			}
+		}
 	}
 
-	public ManualTransformationEditor getManualTransformEditor()
+	protected void tryLoadSettings()
 	{
-		return manualTransformationEditor;
-	}
-
-	public KeymapManager getKeymapManager()
-	{
-		return keymapManager;
-	}
-
-	public AppearanceManager getAppearanceManager()
-	{
-		return appearanceManager;
-	}
-
-	// -------------------------------------------------------------------------------------------------------
-	// BDV ViewerPanel equivalents
-
-	public void loadSettings()
-	{
-		fileChooser.setSelectedFile( proposedSettingsFile );
+		fileChooser.setSelectedFile( bdvData.getProposedSettingsFile() );
 		final int returnVal = fileChooser.showOpenDialog( null );
 		if ( returnVal == JFileChooser.APPROVE_OPTION )
 		{
-			proposedSettingsFile = fileChooser.getSelectedFile();
+			final File file = fileChooser.getSelectedFile();
+			bdvData.setProposedSettingsFile( file );
 			try
 			{
-				loadSettings( proposedSettingsFile.getCanonicalPath() );
+				loadSettings( file.getCanonicalPath() );
+				viewer.repaint();
 			}
 			catch ( final Exception e )
 			{
@@ -277,60 +182,20 @@ public class BigVolumeViewerMamut
 		final SAXBuilder sax = new SAXBuilder();
 		final Document doc = sax.build( xmlFilename );
 		final Element root = doc.getRootElement();
-		viewer.stateFromXml( root );
-		setupAssignments.restoreFromXml( root );
-		manualTransformation.restoreFromXml( root );
+		if ( viewer != null )
+			viewer.stateFromXml( root );
+		bdvData.restoreFromXmlSetupAssignments( root );
+		bdvData.getManualTransformation().restoreFromXml( root );
 		bookmarks.restoreFromXml( root );
-		viewer.requestRepaint();
-	}
-
-	public boolean tryLoadSettings( final String xmlFilename )
-	{
-		proposedSettingsFile = null;
-		if ( xmlFilename.endsWith( ".xml" ) )
-		{
-			final String settings = xmlFilename.substring( 0, xmlFilename.length() - ".xml".length() ) + ".settings" + ".xml";
-			proposedSettingsFile = new File( settings );
-			if ( proposedSettingsFile.isFile() )
-			{
-				try
-				{
-					loadSettings( settings );
-					return true;
-				}
-				catch ( final Exception e )
-				{
-					e.printStackTrace();
-				}
-			}
-		}
-		return false;
-	}
-
-	public void saveSettings()
-	{
-		fileChooser.setSelectedFile( proposedSettingsFile );
-		final int returnVal = fileChooser.showSaveDialog( null );
-		if ( returnVal == JFileChooser.APPROVE_OPTION )
-		{
-			proposedSettingsFile = fileChooser.getSelectedFile();
-			try
-			{
-				saveSettings( proposedSettingsFile.getCanonicalPath() );
-			}
-			catch ( final IOException e )
-			{
-				e.printStackTrace();
-			}
-		}
 	}
 
 	public void saveSettings( final String xmlFilename ) throws IOException
 	{
 		final Element root = new Element( "Settings" );
-		root.addContent( viewer.stateToXml() );
-		root.addContent( setupAssignments.toXml() );
-		root.addContent( manualTransformation.toXml() );
+		if ( viewer != null )
+			root.addContent( viewer.stateToXml() );
+		root.addContent( bdvData.toXmlSetupAssignments() );
+		root.addContent( bdvData.getManualTransformation().toXml() );
 		root.addContent( bookmarks.toXml() );
 		final Document doc = new Document( root );
 		final XMLOutputter xout = new XMLOutputter( Format.getPrettyFormat() );
@@ -347,5 +212,47 @@ public class BigVolumeViewerMamut
 	{
 		viewerFrame.getSplitPanel().setCollapsed( true );
 		viewer.requestFocusInWindow();
+	}
+
+	protected VolumeViewerOptions getOptions( final Values values )
+	{
+		final int windowWidth = 640;
+		final int windowHeight = 480;
+		final int renderWidth = 512;
+		final int renderHeight = 512;
+
+//		final int windowWidth = 1280;
+//		final int windowHeight = 960;
+//		final int renderWidth = 1280;
+//		final int renderHeight = 960;
+
+//		final int renderWidth = 3840;
+//		final int renderHeight = 1600;
+		final int ditherWidth = 8;
+		final int numDitherSamples = 8;
+		final int cacheBlockSize = 64;
+		final int maxCacheSizeInMB = 4000;
+		final double dCam = 2000;
+		final double dClip = 1000;
+
+		final VolumeViewerOptions options = VolumeViewerOptions.options()
+				.width( windowWidth )
+				.height( windowHeight )
+				.renderWidth( renderWidth )
+				.renderHeight( renderHeight )
+				.ditherWidth( ditherWidth )
+				.numDitherSamples( numDitherSamples )
+				.cacheBlockSize( cacheBlockSize )
+				.maxCacheSizeInMB( maxCacheSizeInMB )
+				.dCam( dCam )
+				.dClip( dClip )
+				.appearanceManager( values.getAppearanceManager() )
+				.keymapManager( values.getKeymapManager() )
+				.inputTriggerConfig( values.getInputTriggerConfig() )
+				.msgOverlay( values.getMsgOverlay() )
+				.shareKeyPressedEvents( values.getKeyPressedManager() )
+				.transformEventHandlerFactory( values.getTransformEventHandlerFactory() )
+				.numSourceGroups( values.getNumSourceGroups() );
+		return options;
 	}
 }

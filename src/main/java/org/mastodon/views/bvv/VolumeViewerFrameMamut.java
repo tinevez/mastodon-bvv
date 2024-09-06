@@ -21,8 +21,6 @@ import org.scijava.ui.behaviour.util.TriggerBehaviourBindings;
 import bdv.cache.CacheControl;
 import bdv.ui.BdvDefaultCards;
 import bdv.ui.CardPanel;
-import bdv.ui.appearance.AppearanceManager;
-import bdv.ui.keymap.KeymapManager;
 import bdv.ui.splitpanel.SplitPanel;
 import bdv.viewer.ConverterSetups;
 import bdv.viewer.SourceAndConverter;
@@ -41,28 +39,14 @@ import bvv.core.VolumeViewerPanel;
  */
 public class VolumeViewerFrameMamut extends ViewFrame
 {
+
+	private static final long serialVersionUID = 1L;
+
 	private final VolumeViewerPanel viewer;
 
 	private final CardPanel cards;
 
 	private final SplitPanel splitPanel;
-
-	private final AppearanceManager appearanceManager;
-//
-//	public VolumeViewerFrameMamut(
-//			final List< SourceAndConverter< ? > > sources,
-//			final int numTimepoints,
-//			final CacheControl cache,
-//			final VolumeViewerOptions optional )
-//	{
-//		this(
-//				sources,
-//				numTimepoints,
-//				cache,
-//				new KeymapManager( BigVolumeViewer.configDir ),
-//				new AppearanceManager( BigVolumeViewer.configDir ),
-//				optional );
-//	}
 
 	/**
 	 *
@@ -79,13 +63,10 @@ public class VolumeViewerFrameMamut extends ViewFrame
 			final List< SourceAndConverter< ? > > sources,
 			final int numTimepoints,
 			final CacheControl cacheControl,
-			final KeymapManager keymapManager,
-			final AppearanceManager appearanceManager,
 			final GroupHandle groupHandle,
 			final VolumeViewerOptions optional )
 	{
 		super( "BigVolumeViewer" );
-		this.appearanceManager = appearanceManager;
 		viewer = new VolumeViewerPanel( sources, numTimepoints, cacheControl, optional );
 
 		// Main view panel & config card panel.
@@ -112,7 +93,6 @@ public class VolumeViewerFrameMamut extends ViewFrame
 			}
 		} );
 
-		// TODO: getRootPanel --> viewer ???
 		SwingUtilities.replaceUIActionMap( getRootPane(), keybindings.getConcatenatedActionMap() );
 		SwingUtilities.replaceUIInputMap( getRootPane(), JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT, keybindings.getConcatenatedInputMap() );
 
