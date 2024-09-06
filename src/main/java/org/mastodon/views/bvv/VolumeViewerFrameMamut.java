@@ -5,12 +5,15 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.util.List;
 
+import javax.swing.Box;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
 
+import org.mastodon.app.ui.GroupLocksPanel;
 import org.mastodon.app.ui.ViewFrame;
+import org.mastodon.grouping.GroupHandle;
 import org.scijava.ui.behaviour.MouseAndKeyHandler;
 import org.scijava.ui.behaviour.util.InputActionBindings;
 import org.scijava.ui.behaviour.util.TriggerBehaviourBindings;
@@ -23,7 +26,6 @@ import bdv.ui.keymap.KeymapManager;
 import bdv.ui.splitpanel.SplitPanel;
 import bdv.viewer.ConverterSetups;
 import bdv.viewer.SourceAndConverter;
-import bvv.core.BigVolumeViewer;
 import bvv.core.VolumeViewerFrame;
 import bvv.core.VolumeViewerOptions;
 import bvv.core.VolumeViewerPanel;
@@ -46,15 +48,21 @@ public class VolumeViewerFrameMamut extends ViewFrame
 	private final SplitPanel splitPanel;
 
 	private final AppearanceManager appearanceManager;
-
-	public VolumeViewerFrameMamut(
-			final List< SourceAndConverter< ? > > sources,
-			final int numTimepoints,
-			final CacheControl cache,
-			final VolumeViewerOptions optional )
-	{
-		this( sources, numTimepoints, cache, new KeymapManager( BigVolumeViewer.configDir ), new AppearanceManager( BigVolumeViewer.configDir ), optional );
-	}
+//
+//	public VolumeViewerFrameMamut(
+//			final List< SourceAndConverter< ? > > sources,
+//			final int numTimepoints,
+//			final CacheControl cache,
+//			final VolumeViewerOptions optional )
+//	{
+//		this(
+//				sources,
+//				numTimepoints,
+//				cache,
+//				new KeymapManager( BigVolumeViewer.configDir ),
+//				new AppearanceManager( BigVolumeViewer.configDir ),
+//				optional );
+//	}
 
 	/**
 	 *
@@ -73,19 +81,26 @@ public class VolumeViewerFrameMamut extends ViewFrame
 			final CacheControl cacheControl,
 			final KeymapManager keymapManager,
 			final AppearanceManager appearanceManager,
+			final GroupHandle groupHandle,
 			final VolumeViewerOptions optional )
 	{
 		super( "BigVolumeViewer" );
 		this.appearanceManager = appearanceManager;
 		viewer = new VolumeViewerPanel( sources, numTimepoints, cacheControl, optional );
 
+		// Main view panel & config card panel.
 		cards = new CardPanel();
 		BdvDefaultCards.setup( cards, viewer, viewer.getConverterSetups() );
 		splitPanel = new SplitPanel( viewer, cards );
 
 		getRootPane().setDoubleBuffered( true );
-//		add( viewer, BorderLayout.CENTER );
 		add( splitPanel, BorderLayout.CENTER );
+
+		// Settings panel
+		final GroupLocksPanel navigationLocksPanel = new GroupLocksPanel( groupHandle );
+		settingsPanel.add( navigationLocksPanel );
+		settingsPanel.add( Box.createHorizontalGlue() );
+
 		pack();
 		setDefaultCloseOperation( WindowConstants.DISPOSE_ON_CLOSE );
 		addWindowListener( new WindowAdapter()

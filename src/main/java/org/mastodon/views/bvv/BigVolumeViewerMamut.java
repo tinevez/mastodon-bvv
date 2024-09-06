@@ -16,6 +16,7 @@ import org.jdom2.JDOMException;
 import org.jdom2.input.SAXBuilder;
 import org.jdom2.output.Format;
 import org.jdom2.output.XMLOutputter;
+import org.mastodon.grouping.GroupHandle;
 import org.scijava.Context;
 import org.scijava.plugin.PluginService;
 import org.scijava.ui.behaviour.io.InputTriggerConfig;
@@ -94,7 +95,8 @@ public class BigVolumeViewerMamut
 			final int numTimepoints,
 			final CacheControl cacheControl,
 			final String windowTitle,
-			final VolumeViewerOptions options )
+			final VolumeViewerOptions options,
+			final GroupHandle groupHandle )
 	{
 		final KeymapManager optionsKeymapManager = options.values.getKeymapManager();
 		final AppearanceManager optionsAppearanceManager = options.values.getAppearanceManager();
@@ -106,7 +108,15 @@ public class BigVolumeViewerMamut
 		if ( inputTriggerConfig == null )
 			inputTriggerConfig = keymap.getConfig();
 
-		viewerFrame = new VolumeViewerFrameMamut( sources, numTimepoints, cacheControl, options.inputTriggerConfig( inputTriggerConfig ) );
+		viewerFrame = new VolumeViewerFrameMamut(
+				sources,
+				numTimepoints,
+				cacheControl,
+				optionsKeymapManager,
+				optionsAppearanceManager,
+				groupHandle,
+				options.inputTriggerConfig( inputTriggerConfig ) );
+
 		if ( windowTitle != null )
 			viewerFrame.setTitle( windowTitle );
 		viewer = viewerFrame.getViewerPanel();

@@ -49,7 +49,15 @@ public class Playground extends MamutView< OverlayGraphWrapper< Spot, Link >, Ov
 		final String title = "Trololo";
 
 		/* THISSSSSSSSS */
-		final BigVolumeViewerMamut bvv = new BigVolumeViewerMamut( setups, sources, numTimepoints, cache, title, options );
+		final BigVolumeViewerMamut bvv = new BigVolumeViewerMamut(
+				setups,
+				sources,
+				numTimepoints,
+				cache,
+				title,
+				options,
+				groupHandle );
+
 		final VolumeViewerFrameMamut frame = bvv.getViewerFrame();
 		setFrame( frame );
 		final VolumeViewerPanel viewer = bvv.getViewer();
