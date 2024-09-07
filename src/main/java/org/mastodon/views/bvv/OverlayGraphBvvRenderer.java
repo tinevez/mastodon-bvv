@@ -79,6 +79,8 @@ public class OverlayGraphBvvRenderer< V extends OverlayVertex< V, E >, E extends
 		if ( !settings.getDrawSpots() )
 			return;
 
+		final int defaultColor = settings.getColorSpot();
+
 		final Matrix4f pvm = new Matrix4f( data.getPv() );
 		final Matrix4f view = MatrixMath.affine( data.getRenderTransformWorldToScreen(), new Matrix4f() );
 		final Matrix4f vm = MatrixMath.screen( data.getDCam(), data.getScreenWidth(), data.getScreenHeight(), new Matrix4f() ).mul( view );
@@ -104,11 +106,15 @@ public class OverlayGraphBvvRenderer< V extends OverlayVertex< V, E >, E extends
 			final V focused = focus.getFocusedVertex( ref2 );
 			ccp.getInsideValues()
 					.forEach( s -> {
-						final int color = coloring.color( s );
+						int color = coloring.color( s );
+						if ( color == 0 )
+							color = defaultColor;
+
 						final boolean isHighlighted = s.equals( highlighted );
 						final boolean isFocused = s.equals( focused );
 						final StupidMesh mesh = meshMap.computeIfAbsent( s, BVVUtils::icosahedron );
 						mesh.setColor( color );
+						mesh.setSelectionColor( complementaryColor( defaultColor ) );
 						if ( isFocused || isHighlighted )
 							mesh.scale( 1.2 );
 						else
@@ -223,5 +229,10 @@ public class OverlayGraphBvvRenderer< V extends OverlayVertex< V, E >, E extends
 	{
 		this.width = width;
 		this.height = height;
+	}
+
+	private static final int complementaryColor( final int color )
+	{
+		return 0xff000000 | ~color;
 	}
 }

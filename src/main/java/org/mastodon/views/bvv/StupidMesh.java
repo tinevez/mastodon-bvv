@@ -25,7 +25,6 @@ import static com.jogamp.opengl.GL.GL_FLOAT;
 import static com.jogamp.opengl.GL.GL_TRIANGLES;
 import static com.jogamp.opengl.GL.GL_UNSIGNED_INT;
 
-import java.awt.Color;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 
@@ -46,7 +45,6 @@ import net.imglib2.RealPoint;
 import net.imglib2.mesh.Meshes;
 import net.imglib2.mesh.Vertices;
 import net.imglib2.mesh.impl.nio.BufferMesh;
-import net.imglib2.util.Util;
 
 public class StupidMesh
 {
@@ -58,6 +56,7 @@ public class StupidMesh
 
 	private int vao;
 
+	/** in order: R, G, B, A. */
 	private final float[] carr = new float[ 4 ];
 
 	private final float[] scarr = new float[ 4 ];
@@ -155,10 +154,14 @@ public class StupidMesh
 		gl.glBindVertexArray( 0 );
 	}
 
-	public void setColor( final int c )
+	public void setColor( final int argb )
 	{
-		unpackRGBA( c, carr );
-//		unpackRGBA( complementaryColor( c ), scarr );
+		unpackARGB( argb, carr );
+	}
+
+	public void setSelectionColor( final int argb )
+	{
+		unpackARGB( argb, scarr );
 	}
 
 	public void draw( final GL3 gl, final Matrix4fc pvm, final Matrix4fc vm, final boolean isSelected )
@@ -186,24 +189,11 @@ public class StupidMesh
 		gl.glBindVertexArray( 0 );
 	}
 
-	private static final int complementaryColor( final int color )
+	public static void unpackARGB( final int argb, final float[] result )
 	{
-		return 0xff000000 | ~color;
-	}
-
-	public static void unpackRGBA( final int rgba, final float[] result )
-	{
-//		result[ 0 ] = ( rgba >> 16 ) & 0xff;
-//		result[ 1 ] = ( rgba >> 8 ) & 0xff;
-//		result[ 2 ] = ( rgba ) & 0xff;
-//		result[ 3 ] = 1f;
-
-		new Color( rgba, false ).getColorComponents( result );
-
-//		result[ 0 ] = ( ( rgba >> 24 ) & 0xFF ) / 255f; // Red
-//		result[ 1 ] = ( ( rgba >> 16 ) & 0xFF ) / 255f; // Green
-//		result[ 2 ] = ( ( rgba >> 8 ) & 0xFF ) / 255f; // Blue
-//		result[ 3 ] = ( rgba & 0xFF ) / 255f; // Alpha
-		System.out.println( rgba + " - " + Util.printCoordinates( result ) ); // DEBUG
+		result[ 3 ] = ( ( argb >> 24 ) & 0xff ) / 255f;
+		result[ 0 ] = ( ( argb >> 16 ) & 0xff ) / 255f;
+		result[ 1 ] = ( ( argb >> 8 ) & 0xff ) / 255f;
+		result[ 2 ] = ( ( argb ) & 0xff ) / 255f;
 	}
 }
