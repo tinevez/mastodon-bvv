@@ -43,14 +43,13 @@ import bvv.core.shadergen.generate.Segment;
 import bvv.core.shadergen.generate.SegmentTemplate;
 import net.imglib2.RealPoint;
 import net.imglib2.mesh.Meshes;
-import net.imglib2.mesh.Vertices;
 import net.imglib2.mesh.impl.nio.BufferMesh;
 
 public class StupidMesh
 {
 	private final Shader prog;
 
-	private BufferMesh mesh;
+	private final BufferMesh mesh;
 
 	private boolean initialized;
 
@@ -61,56 +60,16 @@ public class StupidMesh
 
 	private final float[] scarr = new float[ 4 ];
 
-	private final BufferMesh scaled;
-
-	private final BufferMesh original;
-
-	private boolean isScaled = false;
+	private RealPoint center;
 
 	public StupidMesh( final BufferMesh mesh )
 	{
-		this.original = mesh;
-		this.scaled = new BufferMesh( mesh.vertices().size(), mesh.triangles().size() );
 		this.mesh = mesh;
-		Meshes.copy( mesh, scaled );
 		final Segment meshVp = new SegmentTemplate( StupidMesh.class, "mesh.vp" ).instantiate();
 		final Segment meshFp = new SegmentTemplate( StupidMesh.class, "mesh.fp" ).instantiate();
 		prog = new DefaultShader( meshVp.getCode(), meshFp.getCode() );
 		final int c = RenderSettings.defaultStyle().getColorSpot();
 		setColor( c );
-	}
-
-	public void resetScale()
-	{
-		if ( !isScaled )
-			return;
-		this.mesh = original;
-		initialized = false;
-	}
-
-	public void scale( final double factor )
-	{
-		final Vertices verticesOrig = original.vertices();
-		final Vertices verticesScaled = scaled.vertices();
-
-		final long nVertices = verticesOrig.sizel();
-		final RealPoint center = Meshes.center( original );
-		final double cx = center.getDoublePosition( 0 );
-		final double cy = center.getDoublePosition( 1 );
-		final double cz = center.getDoublePosition( 2 );
-		for ( long i = 0; i < nVertices; i++ )
-		{
-			final double x = verticesOrig.x( i );
-			final double y = verticesOrig.y( i );
-			final double z = verticesOrig.z( i );
-			verticesScaled.set( i,
-					cx + ( x - cx ) * factor,
-					cy + ( y - cy ) * factor,
-					cz + ( z - cz ) * factor );
-		}
-		this.mesh = scaled;
-		initialized = false;
-		isScaled = true;
 	}
 
 	private void init( final GL3 gl )
@@ -152,6 +111,8 @@ public class StupidMesh
 		gl.glEnableVertexAttribArray( 1 );
 		gl.glBindBuffer( GL.GL_ELEMENT_ARRAY_BUFFER, meshEbo );
 		gl.glBindVertexArray( 0 );
+
+		center = Meshes.center( mesh );
 	}
 
 	public void setColor( final int argb )
@@ -164,7 +125,12 @@ public class StupidMesh
 		unpackARGB( argb, scarr );
 	}
 
-	public void draw( final GL3 gl, final Matrix4fc pvm, final Matrix4fc vm, final boolean isSelected )
+	public void draw(
+			final GL3 gl,
+			final Matrix4fc pvm,
+			final Matrix4fc vm,
+			final boolean isSelected,
+			final boolean isHighlighted )
 	{
 		if ( !initialized )
 			init( gl );
@@ -178,6 +144,14 @@ public class StupidMesh
 		prog.getUniform4f( "ObjectColor" ).set( carr[ 0 ], carr[ 1 ], carr[ 2 ], carr[ 3 ] );
 		prog.getUniform1f( "IsSelected" ).set( isSelected ? 1f : 0f );
 		prog.getUniform4f( "SelectionColor" ).set( scarr[ 0 ], scarr[ 1 ], scarr[ 2 ], scarr[ 3 ] );
+
+		prog.getUniform3f( "meshCenter" ).set(
+				center.getFloatPosition( 0 ),
+				center.getFloatPosition( 1 ),
+				center.getFloatPosition( 2 ) );
+
+		prog.getUniform1f( "scaleFactor" ).set( isHighlighted ? 1.2f : 1f );
+
 		prog.setUniforms( context );
 		prog.use( context );
 

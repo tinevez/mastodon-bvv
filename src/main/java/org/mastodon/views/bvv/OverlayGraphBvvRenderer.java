@@ -37,8 +37,6 @@ public class OverlayGraphBvvRenderer< V extends OverlayVertex< V, E >, E extends
 
 	private final HighlightModel< V, E > highlight;
 
-	private final FocusModel< V > focus;
-
 	private final SelectionModel< V, E > selection;
 
 	private final GraphColorGenerator< V, E > coloring;
@@ -63,7 +61,6 @@ public class OverlayGraphBvvRenderer< V extends OverlayVertex< V, E >, E extends
 	{
 		this.graph = graph;
 		this.highlight = highlight;
-		this.focus = focus;
 		this.selection = selection;
 		this.coloring = coloring;
 		this.visibilities = new Visibilities<>( graph, selection, focus, graph.getLock() );
@@ -104,7 +101,6 @@ public class OverlayGraphBvvRenderer< V extends OverlayVertex< V, E >, E extends
 //				System.out.print( iterator.next().getLabel() + ", " ); // DEBUG
 			
 			final V highlighted = highlight.getHighlightedVertex( ref1 );
-			final V focused = focus.getFocusedVertex( ref2 );
 			final SpotMeshCreator meshMath = BVVUtils.meshCreator();
 			ccp.getInsideValues()
 					.forEach( s -> {
@@ -113,16 +109,10 @@ public class OverlayGraphBvvRenderer< V extends OverlayVertex< V, E >, E extends
 							color = defaultColor;
 
 						final boolean isHighlighted = s.equals( highlighted );
-						final boolean isFocused = s.equals( focused );
 						final StupidMesh mesh = meshMap.computeIfAbsent( s, meshMath::createMesh );
 						mesh.setColor( color );
 						mesh.setSelectionColor( complementaryColor( defaultColor ) );
-						if ( isFocused || isHighlighted )
-							mesh.scale( 1.2 );
-						else
-							mesh.resetScale();
-
-						mesh.draw( gl, pvm, vm, selection.isSelected( s ) );
+						mesh.draw( gl, pvm, vm, selection.isSelected( s ), isHighlighted );
 					} );
 		}
 		finally
