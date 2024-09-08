@@ -18,6 +18,7 @@ import org.mastodon.views.bdv.overlay.RenderSettings;
 import org.mastodon.views.bdv.overlay.Visibilities;
 import org.mastodon.views.bdv.overlay.Visibilities.VisibilityMode;
 import org.mastodon.views.bdv.overlay.util.BdvRendererUtil;
+import org.mastodon.views.bvv.BVVUtils.SpotMeshCreator;
 
 import com.jogamp.opengl.GL3;
 
@@ -104,6 +105,7 @@ public class OverlayGraphBvvRenderer< V extends OverlayVertex< V, E >, E extends
 			
 			final V highlighted = highlight.getHighlightedVertex( ref1 );
 			final V focused = focus.getFocusedVertex( ref2 );
+			final SpotMeshCreator meshMath = BVVUtils.meshCreator();
 			ccp.getInsideValues()
 					.forEach( s -> {
 						int color = coloring.color( s );
@@ -112,7 +114,7 @@ public class OverlayGraphBvvRenderer< V extends OverlayVertex< V, E >, E extends
 
 						final boolean isHighlighted = s.equals( highlighted );
 						final boolean isFocused = s.equals( focused );
-						final StupidMesh mesh = meshMap.computeIfAbsent( s, BVVUtils::icosahedron );
+						final StupidMesh mesh = meshMap.computeIfAbsent( s, meshMath::createMesh );
 						mesh.setColor( color );
 						mesh.setSelectionColor( complementaryColor( defaultColor ) );
 						if ( isFocused || isHighlighted )
