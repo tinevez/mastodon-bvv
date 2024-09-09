@@ -31,7 +31,6 @@ vec3 phong(vec3 norm, vec3 viewDir, vec3 lightDir, vec3 lightColor, float shinin
 
 void main()
 {
-	//fragColor = vec4(ObjectColor, 1);
 	vec3 norm = normalize(Normal);
 	vec3 viewDir = normalize(-FragPos);
 
@@ -42,6 +41,9 @@ void main()
 		fragColor = vec4( (ambient + l1 + l2), SelectionColor[3]) * SelectionColor;
     } else {
 		float it = dot(norm, viewDir);
+		// float it = 1;
 		fragColor = vec4( it * (ambient + l1 + l2), 1) * ObjectColor + (1-it) * vec4(1,1,1,ObjectColor[3]);
     }
+    
+    // fragColor = vec4(ObjectColor);
 }

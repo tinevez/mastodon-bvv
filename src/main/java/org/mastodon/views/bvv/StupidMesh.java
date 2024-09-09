@@ -44,6 +44,7 @@ import bvv.core.shadergen.generate.SegmentTemplate;
 import net.imglib2.RealPoint;
 import net.imglib2.mesh.Meshes;
 import net.imglib2.mesh.impl.nio.BufferMesh;
+import net.imglib2.util.Util;
 
 public class StupidMesh
 {
@@ -169,5 +170,7 @@ public class StupidMesh
 		result[ 0 ] = ( ( argb >> 16 ) & 0xff ) / 255f;
 		result[ 1 ] = ( ( argb >> 8 ) & 0xff ) / 255f;
 		result[ 2 ] = ( ( argb ) & 0xff ) / 255f;
+
+		System.out.println( Util.printCoordinates( result ) ); // DEBUG
 	}
 }
