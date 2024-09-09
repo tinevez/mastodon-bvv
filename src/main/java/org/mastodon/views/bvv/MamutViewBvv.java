@@ -35,6 +35,9 @@ import org.mastodon.ui.coloring.GraphColorGenerator;
 import org.mastodon.ui.coloring.GraphColorGeneratorAdapter;
 import org.mastodon.ui.keymap.KeyConfigContexts;
 import org.mastodon.views.bdv.SharedBigDataViewerData;
+import org.mastodon.views.bdv.overlay.RenderSettings;
+import org.mastodon.views.bdv.overlay.RenderSettings.UpdateListener;
+import org.mastodon.views.bdv.overlay.ui.RenderSettingsManager;
 import org.mastodon.views.bdv.overlay.wrap.OverlayEdgeWrapper;
 import org.mastodon.views.bdv.overlay.wrap.OverlayGraphWrapper;
 import org.mastodon.views.bdv.overlay.wrap.OverlayVertexWrapper;
@@ -115,6 +118,16 @@ public class MamutViewBvv extends MamutView< OverlayGraphWrapper< Spot, Link >, 
 		viewer.getDisplay().overlays().add( tracksOverlay );
 		viewer.setRenderScene( tracksOverlay );
 //		viewer.renderTransformListeners().add( tracksOverlay );
+
+		final RenderSettingsManager renderSettingsManager = appModel.getWindowManager().getManager( RenderSettingsManager.class );
+		final RenderSettings renderSettings = renderSettingsManager.getForwardDefaultStyle();
+		tracksOverlay.setRenderSettings( renderSettings );
+		final UpdateListener updateListener = () -> {
+			viewer.requestRepaint();
+//			contextProvider.notifyContextChanged();
+		};
+		renderSettings.updateListeners().add( updateListener );
+		onClose( () -> renderSettings.updateListeners().remove( updateListener ) );
 
 		final Model model = appModel.getModel();
 		final ModelGraph modelGraph = model.getGraph();
