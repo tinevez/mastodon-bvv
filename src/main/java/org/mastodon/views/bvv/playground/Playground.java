@@ -94,11 +94,24 @@ public class Playground implements RenderScene
 		gl.glGenBuffers( 1, vboArray, 0 );
 		vbo = vboArray[ 0 ];
 		gl.glBindBuffer( GL_ARRAY_BUFFER, vbo );
-		gl.glBufferData( GL_ARRAY_BUFFER, vertices.length * 4,
+		gl.glBufferData( GL_ARRAY_BUFFER, vertices.length * Float.BYTES,
 				FloatBuffer.wrap( vertices ), GL_STATIC_DRAW );
 
 		// Set up the vertex attributes
-		gl.glVertexAttribPointer( 0, 2, GL_FLOAT, false, 2 * 4, 0 );
+
+		// Index of the attribute in the vertex shader.
+		final int layoutLocation = 0;
+		// Two attributes per vertex: x & y
+		final int nComponents = 2;
+		// Type of each component.
+		final int componentType = GL_FLOAT;
+		// Stride: how spaced (in bytes) is each vertex to the next.
+		final int stride = nComponents * Float.BYTES;
+		// Offset of the first vertex in the buffer.
+		final long offset = 0;
+		// Normalized? Typically false for FLOATs.
+		final boolean normalized = false;
+		gl.glVertexAttribPointer( layoutLocation, nComponents, componentType, normalized, stride, offset );
 		gl.glEnableVertexAttribArray( 0 );
 
 		// Generate instance data (random positions for each triangle)
