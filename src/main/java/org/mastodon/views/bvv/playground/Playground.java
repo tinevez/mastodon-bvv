@@ -94,24 +94,32 @@ public class Playground implements RenderScene
 		gl.glGenBuffers( 1, vboArray, 0 );
 		vbo = vboArray[ 0 ];
 		gl.glBindBuffer( GL_ARRAY_BUFFER, vbo );
-		gl.glBufferData( GL_ARRAY_BUFFER, vertices.length * Float.BYTES,
-				FloatBuffer.wrap( vertices ), GL_STATIC_DRAW );
+		gl.glBufferData( GL_ARRAY_BUFFER,
+				vertices.length * Float.BYTES,
+				FloatBuffer.wrap( vertices ),
+				GL_STATIC_DRAW );
 
 		// Set up the vertex attributes
 
 		// Index of the attribute in the vertex shader.
-		final int layoutLocation = 0;
+		final int layoutVertexPos = 0;
 		// Two attributes per vertex: x & y
 		final int nComponents = 2;
 		// Type of each component.
 		final int componentType = GL_FLOAT;
 		// Stride: how spaced (in bytes) is each vertex to the next.
-		final int stride = nComponents * Float.BYTES;
+		final int strideVertexPos = nComponents * Float.BYTES;
 		// Offset of the first vertex in the buffer.
-		final long offset = 0;
+		final long offsetVertexPos = 0;
 		// Normalized? Typically false for FLOATs.
 		final boolean normalized = false;
-		gl.glVertexAttribPointer( layoutLocation, nComponents, componentType, normalized, stride, offset );
+		gl.glVertexAttribPointer(
+				layoutVertexPos,
+				nComponents,
+				componentType,
+				normalized,
+				strideVertexPos,
+				offsetVertexPos );
 		gl.glEnableVertexAttribArray( 0 );
 
 		// Generate instance data (random positions for each triangle)
@@ -138,17 +146,45 @@ public class Playground implements RenderScene
 		gl.glGenBuffers( 1, instanceVBOArray, 0 );
 		instanceVBO = instanceVBOArray[ 0 ];
 		gl.glBindBuffer( GL_ARRAY_BUFFER, instanceVBO );
-		gl.glBufferData( GL_ARRAY_BUFFER, instanceData.length * 4,
-				FloatBuffer.wrap( instanceData ), GL_STATIC_DRAW );
+		gl.glBufferData( GL_ARRAY_BUFFER,
+				instanceData.length * Float.BYTES,
+				FloatBuffer.wrap( instanceData ),
+				GL4.GL_STATIC_DRAW );
 
 		// Set up the instance attributes
-		gl.glVertexAttribPointer( 1, 4, GL4.GL_FLOAT, false, 6 * 4, 0 );
-		gl.glEnableVertexAttribArray( 1 );
-		gl.glVertexAttribDivisor( 1, 1 );
 
-		gl.glVertexAttribPointer( 2, 2, GL4.GL_FLOAT, false, 6 * 4, 4 * 4 );
-		gl.glEnableVertexAttribArray( 2 );
-		gl.glVertexAttribDivisor( 2, 1 );
+		// 2x2 matrix for transform (rotation and scale)
+		final int layoutRotationMatrix = 1;
+		final int nComponentsRotationMatrix = 4; // 2x2 matrix
+		final int strideInstanceTransform = 6 * Float.BYTES;
+		/// 6 because we have 4 for the rotation matrix and 2 for the
+		// translation,
+		final long offsetRotationMatrix = 0;
+		gl.glVertexAttribPointer(
+				layoutRotationMatrix,
+				nComponentsRotationMatrix,
+				GL_FLOAT,
+				normalized,
+				strideInstanceTransform,
+				offsetRotationMatrix );
+		gl.glEnableVertexAttribArray( layoutRotationMatrix );
+		final int nAttributesPerInstance = 1;
+		gl.glVertexAttribDivisor( layoutRotationMatrix, nAttributesPerInstance );
+
+		final int layoutTranslationVector = 2;
+		final int nComponentsTranslationVector = 2; // x , y
+		final long offsetTranslation = 4 * Float.BYTES;
+		// First translation starts after first rotation matrix, that has a size
+		// of 4 floats.
+		gl.glVertexAttribPointer(
+				layoutTranslationVector,
+				nComponentsTranslationVector,
+				GL_FLOAT,
+				normalized,
+				strideInstanceTransform,
+				offsetTranslation );
+		gl.glEnableVertexAttribArray( layoutTranslationVector );
+		gl.glVertexAttribDivisor( layoutTranslationVector, 1 );
 
 		// Unbind the VAO
 		gl.glBindVertexArray( 0 );
@@ -178,8 +214,6 @@ public class Playground implements RenderScene
 		prog.getUniformMatrix4f( "vm" ).set( vm );
 		prog.getUniformMatrix3f( "itvm" ).set( itvm.get3x3( new Matrix3f() ) );
 
-		// Display settings. For some reason it crashes if > 1
-		gl.glLineWidth( 1f );
 
 		// Use our shader program.
 		prog.setUniforms( context );
@@ -189,6 +223,7 @@ public class Playground implements RenderScene
 		gl.glBindVertexArray( vao );
 
 		// Draw the instanced triangles
+		gl.glPointSize( 5f );
 		gl.glDrawArraysInstanced( GL_LINE_LOOP, 0, 3, INSTANCE_COUNT );
 
 		// Unbind the VAO
