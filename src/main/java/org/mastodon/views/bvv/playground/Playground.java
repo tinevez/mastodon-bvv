@@ -20,6 +20,7 @@ import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 
 import com.jogamp.opengl.GL3;
+import com.jogamp.opengl.GL4;
 
 import bdv.cache.CacheControl;
 import bdv.viewer.SourceAndConverter;
@@ -43,7 +44,7 @@ public class Playground implements RenderScene
 	private static final int INSTANCE_COUNT = 100;
 
 	/** x and y offsets for each instance. */
-	private final float[] instanceData = new float[ INSTANCE_COUNT * 2 ];
+	private final float[] instanceData = new float[ INSTANCE_COUNT * 6 ];
 
 	private int vao;
 
@@ -102,10 +103,21 @@ public class Playground implements RenderScene
 
 		// Generate instance data (random positions for each triangle)
 		final Random rand = new Random();
-		for ( int i = 0; i < INSTANCE_COUNT * 2; i += 2 )
+		for ( int i = 0; i < INSTANCE_COUNT * 6; i += 6 )
 		{
-			instanceData[ i ] = ( rand.nextFloat() ) * 600f;
-			instanceData[ i + 1 ] = ( rand.nextFloat() ) * 400f;
+			// Rotation
+			final float angle = rand.nextFloat() * ( float ) Math.PI * 2;
+			final float cos = ( float ) Math.cos( angle );
+			final float sin = ( float ) Math.sin( angle );
+			// Scale
+			final float scale = rand.nextFloat() * 3f;
+			instanceData[ i ] = cos * scale;
+			instanceData[ i + 1 ] = -sin * scale;
+			instanceData[ i + 2 ] = sin * scale;
+			instanceData[ i + 3 ] = cos * scale;
+			// Offset
+			instanceData[ i + 4 ] = rand.nextFloat() * 600f; // x offset
+			instanceData[ i + 5 ] = rand.nextFloat() * 400f; // y offset
 		}
 
 		// Generate and bind a VBO for instance data
@@ -116,11 +128,14 @@ public class Playground implements RenderScene
 		gl.glBufferData( GL_ARRAY_BUFFER, instanceData.length * 4,
 				FloatBuffer.wrap( instanceData ), GL_STATIC_DRAW );
 
-		// Set up the instance attribute
-		gl.glVertexAttribPointer( 1, 2, GL_FLOAT, false, 2 * 4, 0 );
+		// Set up the instance attributes
+		gl.glVertexAttribPointer( 1, 4, GL4.GL_FLOAT, false, 6 * 4, 0 );
 		gl.glEnableVertexAttribArray( 1 );
-		// This makes it an instanced attribute
 		gl.glVertexAttribDivisor( 1, 1 );
+
+		gl.glVertexAttribPointer( 2, 2, GL4.GL_FLOAT, false, 6 * 4, 4 * 4 );
+		gl.glEnableVertexAttribArray( 2 );
+		gl.glVertexAttribDivisor( 2, 1 );
 
 		// Unbind the VAO
 		gl.glBindVertexArray( 0 );
