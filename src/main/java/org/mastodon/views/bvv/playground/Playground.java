@@ -1,13 +1,18 @@
 package org.mastodon.views.bvv.playground;
 
 import static com.jogamp.opengl.GL.GL_ARRAY_BUFFER;
-import static com.jogamp.opengl.GL.GL_DYNAMIC_DRAW;
+import static com.jogamp.opengl.GL.GL_BLEND;
 import static com.jogamp.opengl.GL.GL_FLOAT;
-import static com.jogamp.opengl.GL.GL_TRIANGLES;
+import static com.jogamp.opengl.GL.GL_LINE_LOOP;
+import static com.jogamp.opengl.GL.GL_LINE_SMOOTH;
+import static com.jogamp.opengl.GL.GL_ONE_MINUS_SRC_ALPHA;
+import static com.jogamp.opengl.GL.GL_SRC_ALPHA;
+import static com.jogamp.opengl.GL.GL_STATIC_DRAW;
 
 import java.nio.FloatBuffer;
 import java.util.Collections;
 import java.util.List;
+import java.util.Random;
 
 import javax.swing.JFrame;
 
@@ -35,6 +40,11 @@ import bvv.core.util.MatrixMath;
 public class Playground implements RenderScene
 {
 
+	private static final int INSTANCE_COUNT = 100;
+
+	/** x and y offsets for each instance. */
+	private final float[] instanceData = new float[ INSTANCE_COUNT * 2 ];
+
 	private int vao;
 
 	private int vbo;
@@ -42,6 +52,8 @@ public class Playground implements RenderScene
 	private boolean initialized = false;
 
 	private DefaultShader prog;
+
+	private int instanceVBO;
 
 	@Override
 	public void render( final GL3 gl, final RenderData data )
@@ -54,10 +66,21 @@ public class Playground implements RenderScene
 
 	private void init( final GL3 gl )
 	{
+		// Rendering options
+		gl.glEnable( GL_LINE_SMOOTH );
+		gl.glEnable( GL_BLEND );
+		gl.glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+
 		// Shader gen.
 		final Segment shaderVp = new SegmentTemplate( Playground.class, "vertexShader.glsl" ).instantiate();
 		final Segment shaderFp = new SegmentTemplate( Playground.class, "fragmentShader.glsl" ).instantiate();
 		prog = new DefaultShader( shaderVp.getCode(), shaderFp.getCode() );
+
+		// 2D coordinates.
+		final float[] vertices = {
+				0, 0,
+				10f, 0,
+				10f, 10f };
 
 		// Generate and bind a Vertex Array Object
 		final int[] vaoArray = new int[ 1 ];
@@ -65,18 +88,41 @@ public class Playground implements RenderScene
 		vao = vaoArray[ 0 ];
 		gl.glBindVertexArray( vao );
 
-		// Generate and bind a Vertex Buffer Object
+		// Generate and bind a Vertex Buffer Object for triangle vertices
 		final int[] vboArray = new int[ 1 ];
 		gl.glGenBuffers( 1, vboArray, 0 );
 		vbo = vboArray[ 0 ];
 		gl.glBindBuffer( GL_ARRAY_BUFFER, vbo );
+		gl.glBufferData( GL_ARRAY_BUFFER, vertices.length * 4,
+				FloatBuffer.wrap( vertices ), GL_STATIC_DRAW );
 
-		// Set the vertex attribute pointers
+		// Set up the vertex attributes
 		gl.glVertexAttribPointer( 0, 2, GL_FLOAT, false, 2 * 4, 0 );
 		gl.glEnableVertexAttribArray( 0 );
 
-		// Unbind the VAO and VBO
-		gl.glBindBuffer( GL_ARRAY_BUFFER, 0 );
+		// Generate instance data (random positions for each triangle)
+		final Random rand = new Random();
+		for ( int i = 0; i < INSTANCE_COUNT * 2; i += 2 )
+		{
+			instanceData[ i ] = ( rand.nextFloat() ) * 600f;
+			instanceData[ i + 1 ] = ( rand.nextFloat() ) * 400f;
+		}
+
+		// Generate and bind a VBO for instance data
+		final int[] instanceVBOArray = new int[ 1 ];
+		gl.glGenBuffers( 1, instanceVBOArray, 0 );
+		instanceVBO = instanceVBOArray[ 0 ];
+		gl.glBindBuffer( GL_ARRAY_BUFFER, instanceVBO );
+		gl.glBufferData( GL_ARRAY_BUFFER, instanceData.length * 4,
+				FloatBuffer.wrap( instanceData ), GL_STATIC_DRAW );
+
+		// Set up the instance attribute
+		gl.glVertexAttribPointer( 1, 2, GL_FLOAT, false, 2 * 4, 0 );
+		gl.glEnableVertexAttribArray( 1 );
+		// This makes it an instanced attribute
+		gl.glVertexAttribDivisor( 1, 1 );
+
+		// Unbind the VAO
 		gl.glBindVertexArray( 0 );
 
 		initialized = true;
@@ -104,29 +150,22 @@ public class Playground implements RenderScene
 		prog.getUniformMatrix4f( "vm" ).set( vm );
 		prog.getUniformMatrix3f( "itvm" ).set( itvm.get3x3( new Matrix3f() ) );
 
+		// Display settings. For some reason it crashes if > 1
+		gl.glLineWidth( 1f );
+
 		// Use our shader program.
 		prog.setUniforms( context );
 		prog.use( context );
 
-		// 2D coordinates.
-		final float[] vertices = {
-				100f, 100f,
-				400f, 100f,
-				400f, 400f
-		};
-
-		// Update the buffer data.
-		gl.glBindBuffer( GL_ARRAY_BUFFER, vbo );
-		gl.glBufferData( GL_ARRAY_BUFFER, vertices.length * 4, FloatBuffer.wrap( vertices ), GL_DYNAMIC_DRAW );
-
-		// Bind the VAO.
+		// Bind the VAO
 		gl.glBindVertexArray( vao );
 
-		// Draw the triangle.
-		gl.glDrawArrays( GL_TRIANGLES, 0, 3 );
+		// Draw the instanced triangles
+		gl.glDrawArraysInstanced( GL_LINE_LOOP, 0, 3, INSTANCE_COUNT );
 
-		// Unbind the VAO.
+		// Unbind the VAO
 		gl.glBindVertexArray( 0 );
+
 	}
 
 	public static void main( final String[] args )
@@ -173,8 +212,7 @@ public class Playground implements RenderScene
 		final double dClip = 1000;
 
 		final Values values = new ViewerOptions()
-				.is2D( true )
-				.values;
+				.is2D( true ).values;
 		final VolumeViewerOptions options = VolumeViewerOptions.options()
 				.width( windowWidth )
 				.height( windowHeight )
