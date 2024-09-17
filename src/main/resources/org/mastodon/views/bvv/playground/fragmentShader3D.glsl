@@ -39,11 +39,9 @@ void main()
 	    vec3 norm = normalize(fragNormal);
 	    
 		vec3 viewDir = normalize(-fragPos);
-		float it = dot(norm, viewDir);
-		
 		vec3 l1 = phong( norm, viewDir, lightDir1, lightColor1, 32, 0.1 );
 		vec3 l2 = phong( norm, viewDir, lightDir2, lightColor2, 32, 0.5 );
 		
-		outColor = vec4( it * (ambient + l1 + l2), 1) * fragColor + (1-it) * vec4(1,1,1,fragColor[3]);
+		outColor = vec4( ambient + l1 + l2, 1) * fragColor;
 	}
 }
