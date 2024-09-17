@@ -38,7 +38,7 @@ import bvv.core.shadergen.generate.Segment;
 import bvv.core.shadergen.generate.SegmentTemplate;
 import bvv.core.util.MatrixMath;
 
-public class Playground implements RenderScene
+public class Playground2D implements RenderScene
 {
 
 	private static final int INSTANCE_COUNT = 100;
@@ -73,8 +73,8 @@ public class Playground implements RenderScene
 		gl.glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 
 		// Shader gen.
-		final Segment shaderVp = new SegmentTemplate( Playground.class, "vertexShader.glsl" ).instantiate();
-		final Segment shaderFp = new SegmentTemplate( Playground.class, "fragmentShader.glsl" ).instantiate();
+		final Segment shaderVp = new SegmentTemplate( Playground2D.class, "vertexShader.glsl" ).instantiate();
+		final Segment shaderFp = new SegmentTemplate( Playground2D.class, "fragmentShader.glsl" ).instantiate();
 		prog = new DefaultShader( shaderVp.getCode(), shaderFp.getCode() );
 
 		// 2D coordinates.
@@ -184,7 +184,7 @@ public class Playground implements RenderScene
 				strideInstanceTransform,
 				offsetTranslation );
 		gl.glEnableVertexAttribArray( layoutTranslationVector );
-		gl.glVertexAttribDivisor( layoutTranslationVector, 1 );
+		gl.glVertexAttribDivisor( layoutTranslationVector, nAttributesPerInstance );
 
 		// Unbind the VAO
 		gl.glBindVertexArray( 0 );
@@ -243,7 +243,7 @@ public class Playground implements RenderScene
 		final VolumeViewerFrame frame = new VolumeViewerFrame( sources, numTimepoints, cache, optional );
 		final VolumeViewerPanel viewer = frame.getViewerPanel();
 
-		final Playground overlay = new Playground();
+		final Playground2D overlay = new Playground2D();
 		viewer.setRenderScene( overlay );
 
 		frame.setDefaultCloseOperation( JFrame.EXIT_ON_CLOSE );
