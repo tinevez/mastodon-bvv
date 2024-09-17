@@ -36,7 +36,7 @@ public class Playground3D implements RenderScene
 
 	private void init( final GL3 gl )
 	{
-		// Instances
+		// Instances TODO they are not used yet.
 		final float[] instancePositions = {
 				200.0f, 200.0f, 0.0f,
 				400.0f, 200.0f, 0.0f,
@@ -45,8 +45,8 @@ public class Playground3D implements RenderScene
 				100.0f, 100.0f, 0.0f
 		};
 
-		this.renderer = new InstancedIcosahedronRenderer( 50f );
-		renderer.init( gl, instancePositions );
+		this.renderer = new InstancedIcosahedronRenderer();
+		renderer.init( gl, instancePositions, 50f );
 
 		initialized = true;
 	}

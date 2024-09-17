@@ -1,17 +1,21 @@
 package org.mastodon.views.bvv.playground;
 
+
 import static com.jogamp.opengl.GL.GL_ARRAY_BUFFER;
+import static com.jogamp.opengl.GL.GL_ELEMENT_ARRAY_BUFFER;
 import static com.jogamp.opengl.GL.GL_FLOAT;
 import static com.jogamp.opengl.GL.GL_LINE_LOOP;
 import static com.jogamp.opengl.GL.GL_STATIC_DRAW;
 import static com.jogamp.opengl.GL.GL_TRIANGLES;
+import static com.jogamp.opengl.GL.GL_UNSIGNED_INT;
 
 import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 
-import com.jogamp.common.nio.Buffers;
+import com.jogamp.opengl.GL;
 import com.jogamp.opengl.GL3;
 
 import bvv.core.backend.jogl.JoglGpuContext;
@@ -20,72 +24,73 @@ import bvv.core.shadergen.DefaultShader;
 import bvv.core.shadergen.generate.Segment;
 import bvv.core.shadergen.generate.SegmentTemplate;
 import bvv.core.util.MatrixMath;
+import net.imglib2.RealPoint;
+import net.imglib2.mesh.Mesh;
+import net.imglib2.mesh.Meshes;
+import net.imglib2.mesh.impl.nio.BufferMesh;
+import net.imglib2.mesh.util.Icosahedron;
 
 public class InstancedIcosahedronRenderer
 {
 	private int vao;
 
-	private int vboMesh;
-
-	private int vboInstances;
-
-	private int numInstances;
-
-	private final float scale;
-
 	private DefaultShader prog;
 
-	public InstancedIcosahedronRenderer( final float scale )
-	{
-		this.scale = scale;
-	}
+	private int vbo;
 
-	public void init( final GL3 gl, final float[] instancePositions )
-	{
-		// Rendering options
-//		gl.glEnable( GL_LINE_SMOOTH );
-//		gl.glEnable( GL_BLEND );
-//		gl.glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+	private int vertexCount;
 
+	private int ebo;
+
+	public void init( final GL3 gl, final float[] instancePositions, final float scale )
+	{
 		// Shader gen.
 		final Segment shaderVp = new SegmentTemplate( Playground3D.class, "vertexShader3D.glsl" ).instantiate();
 		final Segment shaderFp = new SegmentTemplate( Playground3D.class, "fragmentShader3D.glsl" ).instantiate();
 		prog = new DefaultShader( shaderVp.getCode(), shaderFp.getCode() );
 
-		// Generate VAO
+		// Set up icosahedron mesh data
+		final int nSubdivisions = 1;
+		final Mesh core = Icosahedron.sphere( new RealPoint( 3 ), scale, nSubdivisions );
+		final BufferMesh mesh = new BufferMesh( core.vertices().size(), core.triangles().size() );
+		Meshes.copy( core, mesh );
+		final FloatBuffer vertexBuffer = mesh.vertices().verts();
+		vertexBuffer.rewind();
+		final IntBuffer indexBuffer = mesh.triangles().indices();
+		indexBuffer.rewind();
+		vertexCount = indexBuffer.capacity();
+
+		// Generate and bind VAO
 		final int[] vaos = new int[ 1 ];
 		gl.glGenVertexArrays( 1, vaos, 0 );
 		vao = vaos[ 0 ];
 		gl.glBindVertexArray( vao );
 
-		// Set up icosahedron mesh data
-		final FloatBuffer icosahedronBuffer = Icosahedron.createIcosahedronBuffer( scale );
-		final int[] vbos = new int[ 2 ];
-		gl.glGenBuffers( 2, vbos, 0 );
-		vboMesh = vbos[ 0 ];
-		vboInstances = vbos[ 1 ];
+		// Generate and bind VBO
+		final int[] vbos = new int[ 1 ];
+		gl.glGenBuffers( 1, vbos, 0 );
+		vbo = vbos[ 0 ];
+		gl.glBindBuffer( GL_ARRAY_BUFFER, vbo );
+		gl.glBufferData( GL_ARRAY_BUFFER,
+				vertexBuffer.capacity() * Float.BYTES,
+				vertexBuffer,
+				GL_STATIC_DRAW );
 
-		// Load mesh data
-		gl.glBindBuffer( GL_ARRAY_BUFFER, vboMesh );
-		gl.glBufferData( GL_ARRAY_BUFFER, icosahedronBuffer.capacity() * 4, icosahedronBuffer, GL_STATIC_DRAW );
-
-		// Set up mesh vertex attribute
-		gl.glVertexAttribPointer( 0, 3, GL_FLOAT, false, 0, 0 );
+		// Set up vertex attribute pointer
+		gl.glVertexAttribPointer( 0, 3, GL_FLOAT, false, 3 * Float.BYTES, 0 );
 		gl.glEnableVertexAttribArray( 0 );
 
-		// Load instance data
-		numInstances = instancePositions.length / 3; // Assuming 3 floats per
-														// position
-		final FloatBuffer instanceBuffer = Buffers.newDirectFloatBuffer( instancePositions );
-		gl.glBindBuffer( GL_ARRAY_BUFFER, vboInstances );
-		gl.glBufferData( GL_ARRAY_BUFFER, instanceBuffer.capacity() * 4, instanceBuffer, GL_STATIC_DRAW );
+		// Generate and bind EBO
+		final int[] ebos = new int[ 1 ];
+		gl.glGenBuffers( 1, ebos, 0 );
+		ebo = ebos[ 0 ];
+		gl.glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, ebo );
+		gl.glBufferData( GL_ELEMENT_ARRAY_BUFFER,
+				indexBuffer.capacity() * Integer.BYTES,
+				indexBuffer,
+				GL_STATIC_DRAW );
 
-		// Set up instance position attribute
-		gl.glVertexAttribPointer( 1, 3, GL_FLOAT, false, 0, 0 );
-		gl.glEnableVertexAttribArray( 1 );
-		gl.glVertexAttribDivisor( 1, 1 ); // This makes it per-instance
-
-		gl.glBindBuffer( GL_ARRAY_BUFFER, 0 );
+		// Unbind VAO
 		gl.glBindVertexArray( 0 );
 	}
 
@@ -114,25 +119,28 @@ public class InstancedIcosahedronRenderer
 		prog.getUniformMatrix4f( "vm" ).set( vm );
 		prog.getUniformMatrix3f( "itvm" ).set( itvm.get3x3( tmpItvm3 ) );
 
+		gl.glBindVertexArray( vao );
+
 		// Render filled triangles
 		prog.getUniform1i( "renderMode" ).set( 0 );
 		prog.setUniforms( context );
-
-		gl.glBindVertexArray( vao );
-		gl.glDrawArraysInstanced( GL_TRIANGLES, 0, 60, numInstances );
-
-		// Render edges
+		gl.glDrawElements( GL_TRIANGLES, vertexCount, GL_UNSIGNED_INT, 0 );
+		
+		// Render edges & points
 		prog.getUniform1i( "renderMode" ).set( 1 );
 		gl.glLineWidth( 2.0f );
 		prog.setUniforms( context );
+		gl.glDrawElements( GL_LINE_LOOP, vertexCount, GL_UNSIGNED_INT, 0 );
+		gl.glPointSize( 5f );
+		gl.glDrawElements( GL.GL_POINTS, vertexCount, GL_UNSIGNED_INT, 0 );
 
-		gl.glDrawArraysInstanced( GL_LINE_LOOP, 0, 60, numInstances );
 		gl.glBindVertexArray( 0 );
 	}
 
 	public void cleanup( final GL3 gl )
 	{
-		gl.glDeleteBuffers( 2, new int[] { vboMesh, vboInstances }, 0 );
 		gl.glDeleteVertexArrays( 1, new int[] { vao }, 0 );
+		gl.glDeleteBuffers( 1, new int[] { vbo }, 0 );
+		gl.glDeleteBuffers( 1, new int[] { ebo }, 0 );
 	}
 }
