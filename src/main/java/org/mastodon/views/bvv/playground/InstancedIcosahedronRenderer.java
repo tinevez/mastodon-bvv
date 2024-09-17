@@ -89,21 +89,30 @@ public class InstancedIcosahedronRenderer
 		gl.glBindVertexArray( 0 );
 	}
 
+	private final Matrix4f pvm = new Matrix4f();
+
+	private final Matrix4f view = new Matrix4f();
+
+	private final Matrix4f tmpVm = new Matrix4f();
+
+	private final Matrix4f tmpItvm = new Matrix4f();
+
+	private final Matrix3f tmpItvm3 = new Matrix3f();
+
 	public void render( final GL3 gl, final RenderData data )
 	{
 		// Get current view matrices.
-		final Matrix4f pvm = new Matrix4f( data.getPv() );
-		final Matrix4f view = MatrixMath.affine( data.getRenderTransformWorldToScreen(), new Matrix4f() );
-		final Matrix4f vm = MatrixMath.screen( data.getDCam(), data.getScreenWidth(), data.getScreenHeight(), new Matrix4f() ).mul( view );
-
-		final JoglGpuContext context = JoglGpuContext.get( gl );
-		final Matrix4f itvm = vm.invert( new Matrix4f() ).transpose();
+		pvm.set( data.getPv() );
+		MatrixMath.affine( data.getRenderTransformWorldToScreen(), view );
+		final Matrix4f vm = MatrixMath.screen( data.getDCam(), data.getScreenWidth(), data.getScreenHeight(), tmpVm ).mul( view );
+		final Matrix4f itvm = vm.invert( tmpItvm ).transpose();
 
 		// Pass transform matrices.
+		final JoglGpuContext context = JoglGpuContext.get( gl );
 		prog.use( context );
 		prog.getUniformMatrix4f( "pvm" ).set( pvm );
 		prog.getUniformMatrix4f( "vm" ).set( vm );
-		prog.getUniformMatrix3f( "itvm" ).set( itvm.get3x3( new Matrix3f() ) );
+		prog.getUniformMatrix3f( "itvm" ).set( itvm.get3x3( tmpItvm3 ) );
 
 		// Render filled triangles
 		prog.getUniform1i( "renderMode" ).set( 0 );
