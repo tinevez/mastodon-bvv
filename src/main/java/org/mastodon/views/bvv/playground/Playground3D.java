@@ -5,6 +5,8 @@ import java.util.List;
 
 import javax.swing.JFrame;
 
+import org.joml.Matrix4f;
+
 import com.jogamp.opengl.GL3;
 
 import bdv.cache.CacheControl;
@@ -36,17 +38,27 @@ public class Playground3D implements RenderScene
 
 	private void init( final GL3 gl )
 	{
-		// Instances TODO they are not used yet.
-		final float[] instancePositions = {
-				200.0f, 200.0f, 0.0f,
-				400.0f, 200.0f, 0.0f,
-				100.0f, 200.0f, 0.0f,
-				100.0f, 400.0f, 0.0f,
-				100.0f, 100.0f, 0.0f
-		};
+		final int INSTANCE_COUNT = 10;
+
+		final Matrix4f[] modelMatrices = new Matrix4f[ INSTANCE_COUNT ];
+		for ( int i = 0; i < INSTANCE_COUNT; i++ )
+		{
+			modelMatrices[ i ] = new Matrix4f();
+			// Set position
+			final float x = ( float ) ( Math.random() * 600 );
+			final float y = ( float ) ( Math.random() * 400 );
+			final float z = ( float ) ( Math.random() * 100 );
+			// Scale
+			final float scale = ( float ) ( 10f + Math.random() * 50f );
+			// Order is important
+			modelMatrices[ i ]
+					.translate( x, y, z )
+					.scale( scale, scale, scale )
+			;
+		}
 
 		this.renderer = new InstancedIcosahedronRenderer();
-		renderer.init( gl, instancePositions, 50f );
+		renderer.init( gl, modelMatrices );
 
 		initialized = true;
 	}
