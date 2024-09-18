@@ -1,5 +1,6 @@
 layout (location = 0) in vec3 aPos;
 layout (location = 1) in mat4 aInstanceMatrix;
+layout (location = 5) in vec3 aTranslation;
 
 uniform mat4 pvm;
 uniform mat4 vm;
@@ -13,7 +14,9 @@ out vec4 fragColor;
 
 void main()
 {
-    gl_Position = pvm * aInstanceMatrix * vec4(aPos, 1.0);
+	vec4 worldPos = aInstanceMatrix * vec4(aPos, 1.0);
+	worldPos.xyz += aTranslation;
+    gl_Position = pvm * worldPos;
     
     // Generate a color based on the instance position
     if (renderMode == 0) {

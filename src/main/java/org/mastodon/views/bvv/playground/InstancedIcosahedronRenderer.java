@@ -1,11 +1,8 @@
 package org.mastodon.views.bvv.playground;
 
-
 import static com.jogamp.opengl.GL.GL_ARRAY_BUFFER;
 import static com.jogamp.opengl.GL.GL_ELEMENT_ARRAY_BUFFER;
 import static com.jogamp.opengl.GL.GL_FLOAT;
-import static com.jogamp.opengl.GL.GL_LINE_LOOP;
-import static com.jogamp.opengl.GL.GL_POINTS;
 import static com.jogamp.opengl.GL.GL_STATIC_DRAW;
 import static com.jogamp.opengl.GL.GL_TRIANGLES;
 import static com.jogamp.opengl.GL.GL_UNSIGNED_INT;
@@ -16,6 +13,7 @@ import java.nio.IntBuffer;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
+import org.joml.Vector3f;
 
 import com.jogamp.opengl.GL;
 import com.jogamp.opengl.GL3;
@@ -49,6 +47,8 @@ public class InstancedIcosahedronRenderer
 
 	private int instanceVBO;
 
+	private int translationVBO;
+
 	private final int nSubdivisions;
 
 	public InstancedIcosahedronRenderer()
@@ -61,7 +61,9 @@ public class InstancedIcosahedronRenderer
 		this.nSubdivisions = inSubdivisions;
 	}
 
-	public void init( final GL3 gl, final Matrix4fc[] modelMatrices )
+	public void init( final GL3 gl,
+			final Matrix4fc[] modelMatrices,
+			final Vector3f[] translations )
 	{
 		// Shader gen.
 		final Segment shaderVp = new SegmentTemplate( Playground3D.class, "vertexShader3D.glsl" ).instantiate();
@@ -138,12 +140,44 @@ public class InstancedIcosahedronRenderer
 			gl.glEnableVertexAttribArray( 1 + i );
 			gl.glVertexAttribPointer( 1 + i,
 					4,
-					GL.GL_FLOAT,
+					GL_FLOAT,
 					false,
 					16 * Float.BYTES,
 					i * vec4Size );
 			gl.glVertexAttribDivisor( 1 + i, 1 );
 		}
+
+		// Generate and bind instance VBO for translation vectors
+		final int[] translationVBOs = new int[ 1 ];
+		gl.glGenBuffers( 1, translationVBOs, 0 );
+		translationVBO = translationVBOs[ 0 ];
+		gl.glBindBuffer( GL_ARRAY_BUFFER, translationVBO );
+		gl.glBufferData( GL_ARRAY_BUFFER,
+				instanceCount * 3 * Float.BYTES,
+				null,
+				GL_STATIC_DRAW );
+
+		// Fill the buffer
+		final FloatBuffer translationBuffer = GLBuffers.newDirectFloatBuffer( 3 );
+		for ( int i = 0; i < instanceCount; i++ )
+		{
+			translations[ i ].get( translationBuffer );
+			gl.glBufferSubData( GL_ARRAY_BUFFER,
+					i * 3 * Float.BYTES,
+					3 * Float.BYTES,
+					translationBuffer );
+		}
+
+		// Set up instance attribute pointer for translation vectors
+		gl.glEnableVertexAttribArray( 5 ); // Assuming attribute index 5 for
+											// translations
+		gl.glVertexAttribPointer( 5,
+				3,
+				GL_FLOAT,
+				false,
+				3 * Float.BYTES,
+				0 );
+		gl.glVertexAttribDivisor( 5, 1 );
 
 		// Unbind VAO
 		gl.glBindVertexArray( 0 );
@@ -187,24 +221,24 @@ public class InstancedIcosahedronRenderer
 				0,
 				instanceCount );
 
-		// Render edges & points
-		prog.getUniform1i( "renderMode" ).set( 1 );
-		gl.glLineWidth( 0.5f );
-		prog.setUniforms( context );
-		gl.glDrawElementsInstanced(
-				GL_LINE_LOOP,
-				vertexCount,
-				GL_UNSIGNED_INT,
-				0,
-				instanceCount );
-
-		gl.glPointSize( 2f );
-		gl.glDrawElementsInstanced(
-				GL_POINTS,
-				vertexCount,
-				GL_UNSIGNED_INT,
-				0,
-				instanceCount );
+//		// Render edges & points
+//		prog.getUniform1i( "renderMode" ).set( 1 );
+//		gl.glLineWidth( 0.5f );
+//		prog.setUniforms( context );
+//		gl.glDrawElementsInstanced(
+//				GL_LINE_LOOP,
+//				vertexCount,
+//				GL_UNSIGNED_INT,
+//				0,
+//				instanceCount );
+//
+//		gl.glPointSize( 2f );
+//		gl.glDrawElementsInstanced(
+//				GL_POINTS,
+//				vertexCount,
+//				GL_UNSIGNED_INT,
+//				0,
+//				instanceCount );
 
 		// Unbind
 		gl.glBindVertexArray( 0 );
