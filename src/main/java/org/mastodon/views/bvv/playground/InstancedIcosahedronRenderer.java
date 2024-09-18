@@ -207,38 +207,18 @@ public class InstancedIcosahedronRenderer
 		prog.getUniformMatrix4f( "pvm" ).set( pvm );
 		prog.getUniformMatrix4f( "vm" ).set( vm );
 		prog.getUniformMatrix3f( "itvm" ).set( itvm.get3x3( tmpItvm3 ) );
+		prog.setUniforms( context );
 
 		// Bind
 		gl.glBindVertexArray( vao );
 
-		// Render filled triangles
-		prog.getUniform1i( "renderMode" ).set( 0 );
-		prog.setUniforms( context );
+		// Draw the actual meshes.
 		gl.glDrawElementsInstanced(
 				GL_TRIANGLES,
 				vertexCount,
 				GL_UNSIGNED_INT,
 				0,
 				instanceCount );
-
-//		// Render edges & points
-//		prog.getUniform1i( "renderMode" ).set( 1 );
-//		gl.glLineWidth( 0.5f );
-//		prog.setUniforms( context );
-//		gl.glDrawElementsInstanced(
-//				GL_LINE_LOOP,
-//				vertexCount,
-//				GL_UNSIGNED_INT,
-//				0,
-//				instanceCount );
-//
-//		gl.glPointSize( 2f );
-//		gl.glDrawElementsInstanced(
-//				GL_POINTS,
-//				vertexCount,
-//				GL_UNSIGNED_INT,
-//				0,
-//				instanceCount );
 
 		// Unbind
 		gl.glBindVertexArray( 0 );
