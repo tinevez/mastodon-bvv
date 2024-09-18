@@ -140,12 +140,19 @@ public class MamutViewBvv extends MamutView< OverlayGraphWrapper< Spot, Link >, 
 
 		highlightModel.listeners().add( () -> viewer.requestRepaint( RepaintType.SCENE ) );
 		focusModel.listeners().add( () -> viewer.requestRepaint( RepaintType.SCENE ) );
-		modelGraph.addGraphChangeListener( () -> refresher.run() );
-		modelGraph.addVertexPositionListener( v -> {
-			// Only invalidate the timepoint of the modified vertex.
-			final int t = v.getTimepoint();
-			tracksOverlay.invalidate( t );
-			viewer.requestRepaint( RepaintType.SCENE );
+//		modelGraph.addGraphChangeListener( () -> refresher.run() );
+		modelGraph.addVertexPositionListener( spot -> {
+			final OverlayVertexWrapper< Spot, Link > ref = viewGraph.vertexRef();
+			try
+			{
+				final OverlayVertexWrapper< Spot, Link > v = viewGraph.getVertexMap().getRight( spot, ref );
+				tracksOverlay.updatePosition( v );
+			}
+			finally
+			{
+				viewGraph.releaseRef( ref );
+			}
+			viewer.requestRepaint();
 		} );
 //		modelGraph.addVertexLabelListener( v -> viewer.requestRepaint() );
 		selectionModel.listeners().add( () -> viewer.requestRepaint( RepaintType.SCENE ) );

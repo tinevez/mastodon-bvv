@@ -26,6 +26,7 @@ import com.jogamp.opengl.GL3;
 
 import bvv.core.VolumeViewerPanel.RenderScene;
 import bvv.core.render.RenderData;
+import gnu.trove.map.hash.TIntIntHashMap;
 import net.imglib2.type.numeric.ARGBType;
 
 public class OverlayGraphBvvRenderer< V extends OverlayVertex< V, E >, E extends OverlayEdge< E, V > > implements RenderScene
@@ -75,6 +76,17 @@ public class OverlayGraphBvvRenderer< V extends OverlayVertex< V, E >, E extends
 		renderer.render( gl, data );
 	}
 
+	public void updatePosition( final V v )
+	{
+		final int t = v.getTimepoint();
+		final InstancedIcosahedronRenderer renderer = renderers.get( t );
+		if ( renderer == null )
+			return;
+
+		final int id = v.getInternalPoolIndex();
+		renderer.updatePosition( id, v );
+	}
+
 	public void invalidate()
 	{
 		renderers.values().forEach( InstancedIcosahedronRenderer::invalidate );
@@ -111,19 +123,22 @@ public class OverlayGraphBvvRenderer< V extends OverlayVertex< V, E >, E extends
 		final V ref = graph.vertexRef();
 		try
 		{
-
-			final SpatialIndex< V > id = index.getSpatialIndex( t );
-			final int nSpots = id.size();
+			final SpatialIndex< V > si = index.getSpatialIndex( t );
+			final int nSpots = si.size();
 
 			final Matrix4f[] modelMatrices = new Matrix4f[ nSpots ];
 			final Vector3f[] translations = new Vector3f[ nSpots ];
 			final Vector3f[] colors = new Vector3f[ nSpots ];
+			// Map of spot id -> instance index.
+			final TIntIntHashMap idMap = new TIntIntHashMap( nSpots, 0.5f, -1, -1 );
 
 			final int defColor = settings.getColorSpot();
-			final Iterator< V > it = id.iterator();
+			final Iterator< V > it = si.iterator();
 			for ( int i = 0; i < modelMatrices.length; i++ )
 			{
 				final V spot = it.next();
+				final int id = spot.getInternalPoolIndex();
+				idMap.put( id, i );
 				final Matrix4f modelMatrix = creator.createShapeMatrix( spot );
 				final Vector3f pos = creator.createPositionMatrix( spot );
 
@@ -143,11 +158,12 @@ public class OverlayGraphBvvRenderer< V extends OverlayVertex< V, E >, E extends
 						c.getBlue() / 255f );
 			}
 
-			final InstancedIcosahedronRenderer renderer = new InstancedIcosahedronRenderer();
-			renderer.init( gl,
+			final InstancedIcosahedronRenderer renderer = new InstancedIcosahedronRenderer(
 					modelMatrices,
 					translations,
-					colors );
+					colors,
+					idMap );
+			renderer.init( gl );
 			return renderer;
 		}
 		finally

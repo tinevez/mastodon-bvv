@@ -1,6 +1,7 @@
 package org.mastodon.views.bvv;
 
 import static com.jogamp.opengl.GL.GL_ARRAY_BUFFER;
+import static com.jogamp.opengl.GL.GL_DYNAMIC_DRAW;
 import static com.jogamp.opengl.GL.GL_ELEMENT_ARRAY_BUFFER;
 import static com.jogamp.opengl.GL.GL_FLOAT;
 import static com.jogamp.opengl.GL.GL_STATIC_DRAW;
@@ -9,10 +10,10 @@ import static com.jogamp.opengl.GL.GL_UNSIGNED_INT;
 
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
+import java.util.function.BiConsumer;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
-import org.joml.Matrix4fc;
 import org.joml.Vector3f;
 
 import com.jogamp.opengl.GL;
@@ -25,17 +26,20 @@ import bvv.core.shadergen.DefaultShader;
 import bvv.core.shadergen.generate.Segment;
 import bvv.core.shadergen.generate.SegmentTemplate;
 import bvv.core.util.MatrixMath;
+import gnu.trove.map.hash.TIntIntHashMap;
+import net.imglib2.RealLocalizable;
 import net.imglib2.RealPoint;
 import net.imglib2.mesh.Mesh;
 import net.imglib2.mesh.Meshes;
 import net.imglib2.mesh.impl.nio.BufferMesh;
 import net.imglib2.mesh.util.Icosahedron;
+import net.imglib2.util.Util;
 
 public class InstancedIcosahedronRenderer
 {
 	private int vao;
 
-	private DefaultShader prog;
+	private final DefaultShader prog;
 
 	private int vbo;
 
@@ -43,7 +47,7 @@ public class InstancedIcosahedronRenderer
 
 	private int ebo;
 
-	private int instanceCount;
+	private final int instanceCount;
 
 	private int instanceVBO;
 
@@ -55,26 +59,47 @@ public class InstancedIcosahedronRenderer
 
 	private Runnable cleanup;
 
-	public InstancedIcosahedronRenderer()
-	{
-		this( 2 );
-	}
+	private BiConsumer< Integer, RealLocalizable > positionUpdater;
 
-	public InstancedIcosahedronRenderer( final int inSubdivisions )
-	{
-		this.nSubdivisions = inSubdivisions;
-	}
+	private final Matrix4f[] modelMatrices;
 
-	public void init( final GL3 gl,
-			final Matrix4fc[] modelMatrices,
+	private final Vector3f[] translations;
+
+	private final Vector3f[] colors;
+
+	private final TIntIntHashMap idMap;
+
+	public InstancedIcosahedronRenderer(
+			final Matrix4f[] modelMatrices,
 			final Vector3f[] translations,
-			final Vector3f[] colors )
+			final Vector3f[] colors,
+			final TIntIntHashMap idMap )
 	{
+		this( modelMatrices, translations, colors, idMap, 2 );
+	}
+
+	public InstancedIcosahedronRenderer(
+			final Matrix4f[] modelMatrices,
+			final Vector3f[] translations,
+			final Vector3f[] colors,
+			final TIntIntHashMap idMap,
+			final int nSubdivisions )
+	{
+		this.modelMatrices = modelMatrices;
+		this.translations = translations;
+		this.colors = colors;
+		this.idMap = idMap;
+		this.nSubdivisions = nSubdivisions;
+		instanceCount = modelMatrices.length;
+
 		// Shader gen.
 		final Segment shaderVp = new SegmentTemplate( InstancedIcosahedronRenderer.class, "vertexShader3D.glsl" ).instantiate();
 		final Segment shaderFp = new SegmentTemplate( InstancedIcosahedronRenderer.class, "fragmentShader3D.glsl" ).instantiate();
 		prog = new DefaultShader( shaderVp.getCode(), shaderFp.getCode() );
+	}
 
+	public void init( final GL3 gl )
+	{
 		// Set up icosahedron mesh data
 		final Mesh core = Icosahedron.sphere( new RealPoint( 3 ), 1., nSubdivisions );
 		final BufferMesh mesh = new BufferMesh( core.vertices().size(), core.triangles().size() );
@@ -83,9 +108,7 @@ public class InstancedIcosahedronRenderer
 		vertexBuffer.rewind();
 		final IntBuffer indexBuffer = mesh.triangles().indices();
 		indexBuffer.rewind();
-
 		vertexCount = indexBuffer.capacity();
-		instanceCount = modelMatrices.length;
 
 		// Generate and bind VAO
 		final int[] vaos = new int[ 1 ];
@@ -160,7 +183,7 @@ public class InstancedIcosahedronRenderer
 		gl.glBufferData( GL_ARRAY_BUFFER,
 				instanceCount * 3 * Float.BYTES,
 				null,
-				GL_STATIC_DRAW );
+				GL_DYNAMIC_DRAW );
 
 		// Fill the buffer
 		final FloatBuffer translationBuffer = GLBuffers.newDirectFloatBuffer( 3 );
@@ -217,8 +240,9 @@ public class InstancedIcosahedronRenderer
 		// Unbind VAO
 		gl.glBindVertexArray( 0 );
 
-		// Prepare cleanup when we will be invalidated.
+		// Callbacks.
 		this.cleanup = () -> cleanup( gl );
+		this.positionUpdater = ( id, pos ) -> setPosition( gl, id, pos );
 	}
 
 	public void render( final GL3 gl, final RenderData data )
@@ -250,6 +274,33 @@ public class InstancedIcosahedronRenderer
 
 		// Unbind
 		gl.glBindVertexArray( 0 );
+	}
+
+	private void setPosition( final GL3 gl, final int id, final RealLocalizable pos )
+	{
+		final int instanceIndex = idMap.get( id );
+		if ( instanceIndex < 0 )
+			return;
+
+		System.out.println( "Updating spot position " + id + " to index " + instanceIndex ); // DEBUG
+		System.out.println( Util.printCoordinates( pos ) ); // DEBUG
+
+		gl.glBindBuffer( GL_ARRAY_BUFFER, translationVBO );
+		final FloatBuffer positionUpdateBuffer = GLBuffers.newDirectFloatBuffer( 3 );
+		positionUpdateBuffer
+				.put( pos.getFloatPosition( 0 ) )
+				.put( pos.getFloatPosition( 1 ) )
+				.put( pos.getFloatPosition( 2 ) );
+		positionUpdateBuffer.flip();
+		gl.glBufferSubData( GL_ARRAY_BUFFER,
+				instanceIndex * 3 * Float.BYTES,
+				3 * Float.BYTES,
+				positionUpdateBuffer );
+	}
+
+	public void updatePosition( final int id, final RealLocalizable pos )
+	{
+		positionUpdater.accept( id, pos );
 	}
 
 	public void invalidate()
