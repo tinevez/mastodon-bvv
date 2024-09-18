@@ -115,9 +115,7 @@ public class MamutViewBvv extends MamutView< OverlayGraphWrapper< Spot, Link >, 
 				selectionModel,
 				coloring );
 
-		viewer.getDisplay().overlays().add( tracksOverlay );
 		viewer.setRenderScene( tracksOverlay );
-//		viewer.renderTransformListeners().add( tracksOverlay );
 
 		final RenderSettingsManager renderSettingsManager = appModel.getWindowManager().getManager( RenderSettingsManager.class );
 		final RenderSettings renderSettings = renderSettingsManager.getForwardDefaultStyle();

@@ -1,14 +1,16 @@
 package org.mastodon.views.bvv;
 
-import java.awt.Graphics;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 
+import org.joml.Matrix3f;
 import org.joml.Matrix4f;
-import org.mastodon.collection.RefMaps;
-import org.mastodon.kdtree.ClipConvexPolytope;
+import org.joml.Vector3f;
 import org.mastodon.model.FocusModel;
 import org.mastodon.model.HighlightModel;
 import org.mastodon.model.SelectionModel;
+import org.mastodon.spatial.SpatialIndex;
 import org.mastodon.spatial.SpatioTemporalIndex;
 import org.mastodon.ui.coloring.GraphColorGenerator;
 import org.mastodon.views.bdv.overlay.OverlayEdge;
@@ -17,20 +19,15 @@ import org.mastodon.views.bdv.overlay.OverlayVertex;
 import org.mastodon.views.bdv.overlay.RenderSettings;
 import org.mastodon.views.bdv.overlay.Visibilities;
 import org.mastodon.views.bdv.overlay.Visibilities.VisibilityMode;
-import org.mastodon.views.bdv.overlay.util.BdvRendererUtil;
-import org.mastodon.views.bvv.BVVUtils.SpotMeshCreator;
+import org.mastodon.views.bdv.overlay.util.JamaEigenvalueDecomposition;
+import org.mastodon.views.bvv.playground.InstancedIcosahedronRenderer;
 
 import com.jogamp.opengl.GL3;
 
-import bdv.util.Affine3DHelpers;
-import bdv.viewer.OverlayRenderer;
 import bvv.core.VolumeViewerPanel.RenderScene;
 import bvv.core.render.RenderData;
-import bvv.core.util.MatrixMath;
-import net.imglib2.algorithm.kdtree.ConvexPolytope;
-import net.imglib2.realtransform.AffineTransform3D;
 
-public class OverlayGraphBvvRenderer< V extends OverlayVertex< V, E >, E extends OverlayEdge< E, V > > implements RenderScene, OverlayRenderer
+public class OverlayGraphBvvRenderer< V extends OverlayVertex< V, E >, E extends OverlayEdge< E, V > > implements RenderScene
 {
 
 	private final OverlayGraph< V, E > graph;
@@ -47,11 +44,7 @@ public class OverlayGraphBvvRenderer< V extends OverlayVertex< V, E >, E extends
 
 	private final Visibilities< V, E > visibilities;
 
-	private final Map< V, StupidMesh > meshMap;
-
-	private int width;
-
-	private int height;
+	private final Map< Integer, InstancedIcosahedronRenderer > renderers = new HashMap<>();
 
 	public OverlayGraphBvvRenderer( final OverlayGraph< V, E > graph,
 			final HighlightModel< V, E > highlight,
@@ -64,7 +57,6 @@ public class OverlayGraphBvvRenderer< V extends OverlayVertex< V, E >, E extends
 		this.selection = selection;
 		this.coloring = coloring;
 		this.visibilities = new Visibilities<>( graph, selection, focus, graph.getLock() );
-		this.meshMap = RefMaps.createRefObjectMap( graph.vertices() );
 		this.index = graph.getIndex();
 		setRenderSettings( RenderSettings.defaultStyle() );
 	}
@@ -78,121 +70,9 @@ public class OverlayGraphBvvRenderer< V extends OverlayVertex< V, E >, E extends
 			return;
 
 		final int defaultColor = settings.getColorSpot();
-
-		final Matrix4f pvm = new Matrix4f( data.getPv() );
-		final Matrix4f view = MatrixMath.affine( data.getRenderTransformWorldToScreen(), new Matrix4f() );
-		final Matrix4f vm = MatrixMath.screen( data.getDCam(), data.getScreenWidth(), data.getScreenHeight(), new Matrix4f() ).mul( view );
-
 		final int t = data.getTimepoint();
-		graph.getLock().readLock().lock();
-		index.readLock().lock();
-		
-		final V ref1 = graph.vertexRef();
-		final V ref2 = graph.vertexRef();
-		try
-		{
-			final AffineTransform3D transform = data.getRenderTransformWorldToScreen();
-			final ClipConvexPolytope< V > ccp = index.getSpatialIndex( t ).getClipConvexPolytope();
-			final ConvexPolytope cropPolytopeGlobal = getVisiblePolytopeGlobal( transform, t );
-			ccp.clip( cropPolytopeGlobal );
-
-//			System.out.println(); // DEBUG
-//			for ( final Iterator< V > iterator = ccp.getInsideValues().iterator(); iterator.hasNext(); )
-//				System.out.print( iterator.next().getLabel() + ", " ); // DEBUG
-			
-			final V highlighted = highlight.getHighlightedVertex( ref1 );
-			final SpotMeshCreator meshMath = BVVUtils.meshCreator();
-			ccp.getInsideValues()
-					.forEach( s -> {
-						int color = coloring.color( s );
-						if ( color == 0 )
-							color = defaultColor;
-
-						final boolean isHighlighted = s.equals( highlighted );
-						final StupidMesh mesh = meshMap.computeIfAbsent( s, meshMath::createMesh );
-						mesh.setColor( color );
-						mesh.setSelectionColor( complementaryColor( defaultColor ) );
-						mesh.draw( gl, pvm, vm, selection.isSelected( s ), isHighlighted );
-					} );
-		}
-		finally
-		{
-			graph.releaseRef( ref1 );
-			graph.releaseRef( ref2 );
-			
-			graph.getLock().readLock().unlock();
-			index.readLock().unlock();
-		}
-	}
-
-	/**
-	 * Get the {@link ConvexPolytope} bounding the visible region of global
-	 * space, extended by a large enough border to ensure that it contains the
-	 * center of every ellipsoid that intersects the visible volume.
-	 *
-	 * @param transform
-	 *            the current view transform.
-	 * @param timepoint
-	 *            the current timepoint.
-	 * @return a convex polytope object.
-	 */
-	protected ConvexPolytope getVisiblePolytopeGlobal(
-			final AffineTransform3D transform,
-			final int timepoint )
-	{
-		return getOverlappingPolytopeGlobal( 0, width, 0, height, transform, timepoint );
-	}
-
-	/**
-	 * Get the {@link ConvexPolytope} around the specified viewer coordinate
-	 * range that is large enough border to ensure that it contains center of
-	 * every ellipsoid touching the specified coordinate range.
-	 *
-	 * @param xMin
-	 *            minimum X position on the z=0 plane in viewer coordinates.
-	 * @param xMax
-	 *            maximum X position on the z=0 plane in viewer coordinates.
-	 * @param yMin
-	 *            minimum Y position on the z=0 plane in viewer coordinates.
-	 * @param yMax
-	 *            maximum Y position on the z=0 plane in viewer coordinates.
-	 * @param transform
-	 * @param timepoint
-	 * @return
-	 */
-	private ConvexPolytope getOverlappingPolytopeGlobal(
-			final double xMin,
-			final double xMax,
-			final double yMin,
-			final double yMax,
-			final AffineTransform3D transform,
-			final int timepoint )
-	{
-		final double maxDepth = getMaxDepth( transform );
-		final double globalToViewerScale = Affine3DHelpers.extractScale( transform, 0 );
-		final double border = globalToViewerScale * Math.sqrt( graph.getMaxBoundingSphereRadiusSquared( timepoint ) );
-		return BdvRendererUtil.getPolytopeGlobal( transform,
-				xMin - border, xMax + border,
-				yMin - border, yMax + border,
-				-maxDepth - border, maxDepth + border );
-	}
-
-	/**
-	 * Get the maximum distance from view plane up to which to draw spots,
-	 * measured in view coordinates (pixel widths).
-	 *
-	 * @param transform
-	 *            may be needed to convert global {@code focusLimit} to view
-	 *            coordinates.
-	 *
-	 * @return maximum distance from view plane up to which to draw spots.
-	 */
-	protected double getMaxDepth( final AffineTransform3D transform )
-	{
-		final double focusLimit = settings.getFocusLimit();
-		return settings.getFocusLimitViewRelative()
-				? focusLimit
-				: focusLimit * Affine3DHelpers.extractScale( transform, 0 );
+		final InstancedIcosahedronRenderer renderer = renderers.computeIfAbsent( t, tp -> createRenderer( tp, gl ) );
+		renderer.render( gl, data );
 	}
 
 	public void setRenderSettings( final RenderSettings settings )
@@ -210,21 +90,87 @@ public class OverlayGraphBvvRenderer< V extends OverlayVertex< V, E >, E extends
 		return visibilities;
 	}
 
-	@Override
-	public void drawOverlays( final Graphics g )
+	private InstancedIcosahedronRenderer createRenderer( final int t, final GL3 gl )
 	{
-		// Do nothing for the OpenGL panel.
+		final ModelMatrixCreator creator = new ModelMatrixCreator();
+
+		index.readLock().lock();
+		try
+		{
+
+			final SpatialIndex< V > id = index.getSpatialIndex( t );
+			final int nSpots = id.size();
+
+			final Matrix4f[] modelMatrices = new Matrix4f[ nSpots ];
+			final Vector3f[] translations = new Vector3f[ nSpots ];
+
+			final Iterator< V > it = id.iterator();
+			for ( int i = 0; i < modelMatrices.length; i++ )
+			{
+				final V spot = it.next();
+				final Matrix4f modelMatrix = creator.createShapeMatrix( spot );
+				final Vector3f pos = creator.createPositionMatrix( spot );
+
+				modelMatrices[ i ] = modelMatrix;
+				translations[ i ] = pos;
+			}
+
+			final InstancedIcosahedronRenderer renderer = new InstancedIcosahedronRenderer();
+			renderer.init( gl, modelMatrices, translations );
+			return renderer;
+		}
+		finally
+		{
+			index.readLock().unlock();
+		}
 	}
 
-	@Override
-	public void setCanvasSize( final int width, final int height )
+	private class ModelMatrixCreator
 	{
-		this.width = width;
-		this.height = height;
-	}
 
-	private static final int complementaryColor( final int color )
-	{
-		return 0xff000000 | ~color;
+		final JamaEigenvalueDecomposition eig3 = new JamaEigenvalueDecomposition( 3 );
+
+		final double[] radii = new double[ 3 ];
+
+		final double[][] S = new double[ 3 ][ 3 ];
+
+		final Matrix4f scaling = new Matrix4f();
+
+		final Matrix3f rotation = new Matrix3f();
+
+		private Matrix4f createShapeMatrix( final V spot )
+		{
+			spot.getCovariance( S );
+
+			eig3.decomposeSymmetric( S );
+			final double[] eigenvalues = eig3.getRealEigenvalues();
+			for ( int d = 0; d < eigenvalues.length; d++ )
+				radii[ d ] = Math.sqrt( eigenvalues[ d ] );
+			final double[][] V = eig3.getV();
+
+			// Scaling
+			scaling.scaling(
+					( float ) radii[ 0 ],
+					( float ) radii[ 1 ],
+					( float ) radii[ 2 ] );
+
+			// Rotation
+			for ( int r = 0; r < 3; r++ )
+				for ( int c = 0; c < 3; c++ )
+					rotation.set( c, r, ( float ) V[ c ][ r ] );
+
+			final Matrix4f modelMatrix = new Matrix4f();
+			modelMatrix.set( rotation );
+			modelMatrix.mul( scaling );
+			return modelMatrix;
+		}
+
+		public Vector3f createPositionMatrix( final V spot )
+		{
+			return new Vector3f(
+					spot.getFloatPosition( 0 ),
+					spot.getFloatPosition( 1 ),
+					spot.getFloatPosition( 2 ) );
+		}
 	}
 }
