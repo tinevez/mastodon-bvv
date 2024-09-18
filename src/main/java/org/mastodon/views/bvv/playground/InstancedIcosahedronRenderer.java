@@ -51,6 +51,10 @@ public class InstancedIcosahedronRenderer
 
 	private final int nSubdivisions;
 
+	private int colorVBO;
+
+	private Runnable cleanup;
+
 	public InstancedIcosahedronRenderer()
 	{
 		this( 2 );
@@ -63,11 +67,12 @@ public class InstancedIcosahedronRenderer
 
 	public void init( final GL3 gl,
 			final Matrix4fc[] modelMatrices,
-			final Vector3f[] translations )
+			final Vector3f[] translations,
+			final Vector3f[] colors )
 	{
 		// Shader gen.
-		final Segment shaderVp = new SegmentTemplate( Playground3D.class, "vertexShader3D.glsl" ).instantiate();
-		final Segment shaderFp = new SegmentTemplate( Playground3D.class, "fragmentShader3D.glsl" ).instantiate();
+		final Segment shaderVp = new SegmentTemplate( InstancedIcosahedronRenderer.class, "vertexShader3D.glsl" ).instantiate();
+		final Segment shaderFp = new SegmentTemplate( InstancedIcosahedronRenderer.class, "fragmentShader3D.glsl" ).instantiate();
 		prog = new DefaultShader( shaderVp.getCode(), shaderFp.getCode() );
 
 		// Set up icosahedron mesh data
@@ -169,8 +174,7 @@ public class InstancedIcosahedronRenderer
 		}
 
 		// Set up instance attribute pointer for translation vectors
-		gl.glEnableVertexAttribArray( 5 ); // Assuming attribute index 5 for
-											// translations
+		gl.glEnableVertexAttribArray( 5 );
 		gl.glVertexAttribPointer( 5,
 				3,
 				GL_FLOAT,
@@ -179,34 +183,58 @@ public class InstancedIcosahedronRenderer
 				0 );
 		gl.glVertexAttribDivisor( 5, 1 );
 
+		// Generate and bind instance VBO for object colors
+		final int[] colorVBOs = new int[ 1 ];
+		gl.glGenBuffers( 1, colorVBOs, 0 );
+		colorVBO = colorVBOs[ 0 ];
+		gl.glBindBuffer( GL_ARRAY_BUFFER, colorVBO );
+		gl.glBufferData( GL_ARRAY_BUFFER,
+				instanceCount * 3 * Float.BYTES,
+				null,
+				GL_STATIC_DRAW );
+
+		// Fill the buffer
+		final FloatBuffer colorBuffer = GLBuffers.newDirectFloatBuffer( 3 );
+		for ( int i = 0; i < instanceCount; i++ )
+		{
+			colors[ i ].get( colorBuffer );
+			gl.glBufferSubData( GL_ARRAY_BUFFER,
+					i * 3 * Float.BYTES,
+					3 * Float.BYTES,
+					colorBuffer );
+		}
+
+		// Set up instance attribute pointer for color vectors
+		gl.glEnableVertexAttribArray( 6 );
+		gl.glVertexAttribPointer( 6,
+				3,
+				GL_FLOAT,
+				false,
+				3 * Float.BYTES,
+				0 );
+		gl.glVertexAttribDivisor( 6, 1 );
+
 		// Unbind VAO
 		gl.glBindVertexArray( 0 );
+
+		// Prepare cleanup when we will be invalidated.
+		this.cleanup = () -> cleanup( gl );
 	}
-
-	private final Matrix4f pvm = new Matrix4f();
-
-	private final Matrix4f view = new Matrix4f();
-
-	private final Matrix4f tmpVm = new Matrix4f();
-
-	private final Matrix4f tmpItvm = new Matrix4f();
-
-	private final Matrix3f tmpItvm3 = new Matrix3f();
 
 	public void render( final GL3 gl, final RenderData data )
 	{
 		// Get current view matrices.
-		pvm.set( data.getPv() );
-		MatrixMath.affine( data.getRenderTransformWorldToScreen(), view );
-		final Matrix4f vm = MatrixMath.screen( data.getDCam(), data.getScreenWidth(), data.getScreenHeight(), tmpVm ).mul( view );
-		final Matrix4f itvm = vm.invert( tmpItvm ).transpose();
+		final Matrix4f pvm = new Matrix4f( data.getPv() );
+		final Matrix4f view = MatrixMath.affine( data.getRenderTransformWorldToScreen(), new Matrix4f() );
+		final Matrix4f vm = MatrixMath.screen( data.getDCam(), data.getScreenWidth(), data.getScreenHeight(), new Matrix4f() ).mul( view );
+		final Matrix4f itvm = vm.invert( new Matrix4f() ).transpose();
 
 		// Pass transform matrices.
 		final JoglGpuContext context = JoglGpuContext.get( gl );
 		prog.use( context );
 		prog.getUniformMatrix4f( "pvm" ).set( pvm );
 		prog.getUniformMatrix4f( "vm" ).set( vm );
-		prog.getUniformMatrix3f( "itvm" ).set( itvm.get3x3( tmpItvm3 ) );
+		prog.getUniformMatrix3f( "itvm" ).set( itvm.get3x3( new Matrix3f() ) );
 		prog.setUniforms( context );
 
 		// Bind
@@ -224,11 +252,19 @@ public class InstancedIcosahedronRenderer
 		gl.glBindVertexArray( 0 );
 	}
 
-	public void cleanup( final GL3 gl )
+	public void invalidate()
+	{
+		if ( cleanup != null )
+			cleanup.run();
+	}
+
+	private void cleanup( final GL3 gl )
 	{
 		gl.glDeleteVertexArrays( 1, new int[] { vao }, 0 );
 		gl.glDeleteBuffers( 1, new int[] { vbo }, 0 );
 		gl.glDeleteBuffers( 1, new int[] { ebo }, 0 );
 		gl.glDeleteBuffers( 1, new int[] { instanceVBO }, 0 );
+		gl.glDeleteBuffers( 1, new int[] { translationVBO }, 0 );
+		gl.glDeleteBuffers( 1, new int[] { colorVBO }, 0 );
 	}
 }

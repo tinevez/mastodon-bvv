@@ -1,5 +1,6 @@
 package org.mastodon.views.bvv;
 
+import java.awt.Color;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -26,6 +27,7 @@ import com.jogamp.opengl.GL3;
 
 import bvv.core.VolumeViewerPanel.RenderScene;
 import bvv.core.render.RenderData;
+import net.imglib2.type.numeric.ARGBType;
 
 public class OverlayGraphBvvRenderer< V extends OverlayVertex< V, E >, E extends OverlayEdge< E, V > > implements RenderScene
 {
@@ -69,10 +71,22 @@ public class OverlayGraphBvvRenderer< V extends OverlayVertex< V, E >, E extends
 		if ( !settings.getDrawSpots() )
 			return;
 
-		final int defaultColor = settings.getColorSpot();
 		final int t = data.getTimepoint();
 		final InstancedIcosahedronRenderer renderer = renderers.computeIfAbsent( t, tp -> createRenderer( tp, gl ) );
 		renderer.render( gl, data );
+	}
+
+	public void invalidate()
+	{
+		renderers.values().forEach( InstancedIcosahedronRenderer::invalidate );
+		renderers.clear();
+	}
+
+	public void invalidate( final int t )
+	{
+		final InstancedIcosahedronRenderer r = renderers.remove( t );
+		if ( r != null )
+			r.invalidate();
 	}
 
 	public void setRenderSettings( final RenderSettings settings )
@@ -95,6 +109,7 @@ public class OverlayGraphBvvRenderer< V extends OverlayVertex< V, E >, E extends
 		final ModelMatrixCreator creator = new ModelMatrixCreator();
 
 		index.readLock().lock();
+		final V ref = graph.vertexRef();
 		try
 		{
 
@@ -103,6 +118,9 @@ public class OverlayGraphBvvRenderer< V extends OverlayVertex< V, E >, E extends
 
 			final Matrix4f[] modelMatrices = new Matrix4f[ nSpots ];
 			final Vector3f[] translations = new Vector3f[ nSpots ];
+			final Vector3f[] colors = new Vector3f[ nSpots ];
+
+			final int defColor = settings.getColorSpot();
 
 			final Iterator< V > it = id.iterator();
 			for ( int i = 0; i < modelMatrices.length; i++ )
@@ -113,14 +131,30 @@ public class OverlayGraphBvvRenderer< V extends OverlayVertex< V, E >, E extends
 
 				modelMatrices[ i ] = modelMatrix;
 				translations[ i ] = pos;
+
+				final int color = coloring.color( spot );
+				final Color c = getColor(
+						selection.isSelected( spot ),
+						spot.equals( highlight.getHighlightedVertex( ref ) ),
+						defColor,
+						color );
+
+				colors[ i ] = new Vector3f(
+						c.getRed() / 255f,
+						c.getGreen() / 255f,
+						c.getBlue() / 255f );
 			}
 
 			final InstancedIcosahedronRenderer renderer = new InstancedIcosahedronRenderer();
-			renderer.init( gl, modelMatrices, translations );
+			renderer.init( gl,
+					modelMatrices,
+					translations,
+					colors );
 			return renderer;
 		}
 		finally
 		{
+			graph.releaseRef( ref );
 			index.readLock().unlock();
 		}
 	}
@@ -172,5 +206,62 @@ public class OverlayGraphBvvRenderer< V extends OverlayVertex< V, E >, E extends
 					spot.getFloatPosition( 1 ),
 					spot.getFloatPosition( 2 ) );
 		}
+	}
+
+	protected static Color getColor(
+			final boolean isSelected,
+			final boolean isHighlighted,
+			final int defColor,
+			final int color )
+	{
+		final int r0, g0, b0;
+		if ( color == 0 )
+		{
+			// No coloring. Color are set by the RenderSettings.
+			r0 = ( defColor >> 16 ) & 0xff;
+			g0 = ( defColor >> 8 ) & 0xff;
+			b0 = ( defColor ) & 0xff;
+		}
+		else
+		{
+			// Use the generated color.
+			final int compColor = complementaryColor( defColor );
+			r0 = ( ( ( isSelected ? compColor : color ) >> 16 ) & 0xff );
+			g0 = ( ( ( isSelected ? compColor : color ) >> 8 ) & 0xff );
+			b0 = ( ( isSelected ? compColor : color ) & 0xff );
+		}
+		final double r = r0 / 255;
+		final double g = g0 / 255;
+		final double b = b0 / 255;
+		final double a = 1.;
+		return new Color( truncRGBA( r, g, b, a ), true );
+	}
+
+	private static final int complementaryColor( final int color )
+	{
+		return 0xff000000 | ~color;
+	}
+
+	private static int trunc255( final int i )
+	{
+		return Math.min( 255, Math.max( 0, i ) );
+	}
+
+	private static int truncRGBA( final int r, final int g, final int b, final int a )
+	{
+		return ARGBType.rgba(
+				trunc255( r ),
+				trunc255( g ),
+				trunc255( b ),
+				trunc255( a ) );
+	}
+
+	private static int truncRGBA( final double r, final double g, final double b, final double a )
+	{
+		return truncRGBA(
+				( int ) ( 255 * r ),
+				( int ) ( 255 * g ),
+				( int ) ( 255 * b ),
+				( int ) ( 255 * a ) );
 	}
 }

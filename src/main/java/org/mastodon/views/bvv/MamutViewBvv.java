@@ -49,6 +49,7 @@ import org.scijava.ui.behaviour.util.Actions;
 import bdv.tools.InitializeViewerState;
 import bdv.viewer.NavigationActions;
 import bvv.core.VolumeViewerPanel;
+import bvv.core.render.VolumeRenderer.RepaintType;
 import net.imglib2.realtransform.AffineTransform3D;
 
 public class MamutViewBvv extends MamutView< OverlayGraphWrapper< Spot, Link >, OverlayVertexWrapper< Spot, Link >, OverlayEdgeWrapper< Spot, Link > >
@@ -120,22 +121,30 @@ public class MamutViewBvv extends MamutView< OverlayGraphWrapper< Spot, Link >, 
 		final RenderSettingsManager renderSettingsManager = appModel.getWindowManager().getManager( RenderSettingsManager.class );
 		final RenderSettings renderSettings = renderSettingsManager.getForwardDefaultStyle();
 		tracksOverlay.setRenderSettings( renderSettings );
-		final UpdateListener updateListener = () -> {
-			viewer.requestRepaint();
-//			contextProvider.notifyContextChanged();
-		};
+
+		final Runnable refresher =
+				() -> {
+					tracksOverlay.invalidate();
+					viewer.requestRepaint( RepaintType.SCENE );
+				};
+		final UpdateListener updateListener = () -> refresher.run();
 		renderSettings.updateListeners().add( updateListener );
 		onClose( () -> renderSettings.updateListeners().remove( updateListener ) );
 
 		final Model model = appModel.getModel();
 		final ModelGraph modelGraph = model.getGraph();
 
-		highlightModel.listeners().add( () -> viewer.requestRepaint() );
-		focusModel.listeners().add( () -> viewer.requestRepaint() );
-		modelGraph.addGraphChangeListener( () -> viewer.requestRepaint() );
-		modelGraph.addVertexPositionListener( v -> viewer.requestRepaint() );
-		modelGraph.addVertexLabelListener( v -> viewer.requestRepaint() );
-		selectionModel.listeners().add( () -> viewer.requestRepaint() );
+		highlightModel.listeners().add( () -> viewer.requestRepaint( RepaintType.SCENE ) );
+		focusModel.listeners().add( () -> viewer.requestRepaint( RepaintType.SCENE ) );
+		modelGraph.addGraphChangeListener( () -> refresher.run() );
+		modelGraph.addVertexPositionListener( v -> {
+			// Only invalidate the timepoint of the modified vertex.
+			final int t = v.getTimepoint();
+			tracksOverlay.invalidate( t );
+			viewer.requestRepaint( RepaintType.SCENE );
+		} );
+//		modelGraph.addVertexLabelListener( v -> viewer.requestRepaint() );
+		selectionModel.listeners().add( () -> viewer.requestRepaint( RepaintType.SCENE ) );
 
 		NavigationActions.install( viewActions, viewer, bdvData.is2D() );
 		viewer.getTransformEventHandler().install( viewBehaviours );
@@ -150,7 +159,7 @@ public class MamutViewBvv extends MamutView< OverlayGraphWrapper< Spot, Link >, 
 			viewer.state().setViewerTransform( resetTransform );
 			viewer.showMessage( "reset view" );
 		}, "reset transform", "R" );
-		
+
 		onClose( () -> viewer.stop() );
 
 		frame.setDefaultCloseOperation( JFrame.EXIT_ON_CLOSE );
