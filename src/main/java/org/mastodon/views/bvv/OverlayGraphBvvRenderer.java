@@ -21,7 +21,6 @@ import org.mastodon.views.bdv.overlay.RenderSettings;
 import org.mastodon.views.bdv.overlay.Visibilities;
 import org.mastodon.views.bdv.overlay.Visibilities.VisibilityMode;
 import org.mastodon.views.bdv.overlay.util.JamaEigenvalueDecomposition;
-import org.mastodon.views.bvv.playground.InstancedIcosahedronRenderer;
 
 import com.jogamp.opengl.GL3;
 
@@ -121,7 +120,6 @@ public class OverlayGraphBvvRenderer< V extends OverlayVertex< V, E >, E extends
 			final Vector3f[] colors = new Vector3f[ nSpots ];
 
 			final int defColor = settings.getColorSpot();
-
 			final Iterator< V > it = id.iterator();
 			for ( int i = 0; i < modelMatrices.length; i++ )
 			{
@@ -230,9 +228,9 @@ public class OverlayGraphBvvRenderer< V extends OverlayVertex< V, E >, E extends
 			g0 = ( ( ( isSelected ? compColor : color ) >> 8 ) & 0xff );
 			b0 = ( ( isSelected ? compColor : color ) & 0xff );
 		}
-		final double r = r0 / 255;
-		final double g = g0 / 255;
-		final double b = b0 / 255;
+		final double r = r0 / 255.;
+		final double g = g0 / 255.;
+		final double b = b0 / 255.;
 		final double a = 1.;
 		return new Color( truncRGBA( r, g, b, a ), true );
 	}

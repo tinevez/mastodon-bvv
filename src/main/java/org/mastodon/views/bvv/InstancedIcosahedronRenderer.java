@@ -1,4 +1,4 @@
-package org.mastodon.views.bvv.playground;
+package org.mastodon.views.bvv;
 
 import static com.jogamp.opengl.GL.GL_ARRAY_BUFFER;
 import static com.jogamp.opengl.GL.GL_ELEMENT_ARRAY_BUFFER;

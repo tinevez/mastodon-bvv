@@ -101,32 +101,36 @@ public class MamutViewBvv extends MamutView< OverlayGraphWrapper< Spot, Link >, 
 						colorbarMenu( colorbarMenuHandle ) ),
 				editMenu() );
 
+		// The content panel.
 		final VolumeViewerPanel viewer = bvv.getViewer();
 
 		// we need the coloring now.
 		final GraphColorGeneratorAdapter< Spot, Link, OverlayVertexWrapper< Spot, Link >, OverlayEdgeWrapper< Spot, Link > > coloring = new GraphColorGeneratorAdapter<>( viewGraph.getVertexMap(), viewGraph.getEdgeMap() );
-		coloringModel = registerColoring( coloring, menuHandle, () -> viewer.requestRepaint() );
-		colorBarOverlay = new ColorBarOverlay( coloringModel, () -> viewer.getBackground() );
-		registerColorbarOverlay( colorBarOverlay, colorbarMenuHandle, () -> viewer.requestRepaint() );
 
+		// The spot & link overlay.
 		final OverlayGraphBvvRenderer< OverlayVertexWrapper< Spot, Link >, OverlayEdgeWrapper< Spot, Link > > tracksOverlay = createRenderer(
 				viewGraph,
 				highlightModel,
 				focusModel,
 				selectionModel,
 				coloring );
-
 		viewer.setRenderScene( tracksOverlay );
 
-		final RenderSettingsManager renderSettingsManager = appModel.getWindowManager().getManager( RenderSettingsManager.class );
-		final RenderSettings renderSettings = renderSettingsManager.getForwardDefaultStyle();
-		tracksOverlay.setRenderSettings( renderSettings );
-
+		// A runnable called to update everything in the overlay.
 		final Runnable refresher =
 				() -> {
 					tracksOverlay.invalidate();
 					viewer.requestRepaint( RepaintType.SCENE );
 				};
+
+		coloringModel = registerColoring( coloring, menuHandle, () -> refresher.run() );
+		colorBarOverlay = new ColorBarOverlay( coloringModel, () -> viewer.getBackground() );
+		registerColorbarOverlay( colorBarOverlay, colorbarMenuHandle, () -> viewer.requestRepaint( RepaintType.SCENE ) );
+
+		final RenderSettingsManager renderSettingsManager = appModel.getWindowManager().getManager( RenderSettingsManager.class );
+		final RenderSettings renderSettings = renderSettingsManager.getForwardDefaultStyle();
+		tracksOverlay.setRenderSettings( renderSettings );
+
 		final UpdateListener updateListener = () -> refresher.run();
 		renderSettings.updateListeners().add( updateListener );
 		onClose( () -> renderSettings.updateListeners().remove( updateListener ) );
