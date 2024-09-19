@@ -35,6 +35,7 @@ import bvv.core.shadergen.generate.Segment;
 import bvv.core.shadergen.generate.SegmentTemplate;
 import bvv.core.util.MatrixMath;
 import gnu.trove.map.hash.TIntIntHashMap;
+import net.imglib2.RealLocalizable;
 import net.imglib2.RealPoint;
 import net.imglib2.mesh.Mesh;
 import net.imglib2.mesh.Meshes;
@@ -82,6 +83,8 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 
 	private boolean initialized;
 
+	private final PositionUpdate positionUpdate;
+
 	public FrameRenderer(
 			final HighlightModel< V, ? > highlight,
 			final SelectionModel< V, ? > selection,
@@ -99,6 +102,7 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 		prog = new DefaultShader( shaderVp.getCode(), shaderFp.getCode() );
 
 		this.initialized = false;
+		this.positionUpdate = new PositionUpdate();
 	}
 
 	/**
@@ -196,6 +200,13 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 		}
 	}
 
+	void updatePosition( final V v )
+	{
+		final int id = v.getInternalPoolIndex();
+		final int index = idMap.get( id );
+		positionUpdate.set( index, v );
+	}
+
 	/*
 	 * OpenGL methods.
 	 */
@@ -219,6 +230,10 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 		// Did the color changed?
 		if ( colorBuffer != null )
 			transferColorBuffer( gl );
+
+		// Did the position of a vertex changed?
+		if ( positionUpdate.todo )
+			transferPositionUdate( gl );
 
 		// Get current view matrices.
 		pvm.set( data.getPv() );
@@ -249,6 +264,17 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 
 		// Unbind
 		gl.glBindVertexArray( 0 );
+	}
+
+	private void transferPositionUdate( final GL3 gl )
+	{
+		gl.glBindBuffer( GL_ARRAY_BUFFER, translationVBO );
+		gl.glBufferSubData(
+				GL_ARRAY_BUFFER,
+				3 * positionUpdate.index * Float.BYTES,
+				3 * Float.BYTES,
+				positionUpdate.buffer );
+		positionUpdate.todo = false;
 	}
 
 	private void transferColorBuffer( final GL3 gl )
@@ -472,6 +498,27 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 	/*
 	 * Static inner classes.
 	 */
+
+	private static class PositionUpdate
+	{
+		private boolean todo = false;
+
+		private int index;
+
+		private final FloatBuffer buffer = GLBuffers.newDirectFloatBuffer( 3 );
+
+		public void set( final int index, final RealLocalizable pos )
+		{
+			this.todo = true;
+			this.index = index;
+			buffer.clear();
+			buffer
+					.put( pos.getFloatPosition( 0 ) )
+					.put( pos.getFloatPosition( 1 ) )
+					.put( pos.getFloatPosition( 2 ) );
+			buffer.rewind();
+		}
+	}
 
 	private static class ModelDataCreator< V extends OverlayVertex< V, ? > >
 	{

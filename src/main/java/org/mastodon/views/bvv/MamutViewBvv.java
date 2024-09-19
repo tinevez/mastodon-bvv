@@ -7,10 +7,13 @@ import static org.mastodon.mamut.MamutMenuBuilder.editMenu;
 import static org.mastodon.mamut.MamutMenuBuilder.fileMenu;
 import static org.mastodon.mamut.MamutMenuBuilder.viewMenu;
 
+import java.util.function.Consumer;
+
 import javax.swing.ActionMap;
 import javax.swing.JFrame;
 import javax.swing.WindowConstants;
 
+import org.mastodon.adapter.RefBimap;
 import org.mastodon.app.ui.MastodonFrameViewActions;
 import org.mastodon.app.ui.ViewMenu;
 import org.mastodon.app.ui.ViewMenuBuilder.JMenuHandle;
@@ -19,6 +22,8 @@ import org.mastodon.mamut.MamutMenuBuilder;
 import org.mastodon.mamut.ProjectModel;
 import org.mastodon.mamut.io.ProjectLoader;
 import org.mastodon.mamut.model.Link;
+import org.mastodon.mamut.model.Model;
+import org.mastodon.mamut.model.ModelGraph;
 import org.mastodon.mamut.model.ModelOverlayProperties;
 import org.mastodon.mamut.model.Spot;
 import org.mastodon.mamut.model.branch.BranchLink;
@@ -127,6 +132,13 @@ public class MamutViewBvv extends MamutView< OverlayGraphWrapper< Spot, Link >, 
 			tracksOverlay.updateColors();
 			viewer.requestRepaint( RepaintType.SCENE );
 		};
+		final RefBimap< Spot, OverlayVertexWrapper< Spot, Link > > vertexMap = viewGraph.getVertexMap();
+		final OverlayVertexWrapper< Spot, Link > oref = viewGraph.vertexRef();
+		final Consumer< Spot > positionUpdater = ( s ) -> {
+			final OverlayVertexWrapper< Spot, Link > v = vertexMap.getRight( s, oref );
+			tracksOverlay.updatePosition( v );
+			viewer.requestRepaint( RepaintType.FULL );
+		};
 
 		coloringModel = registerColoring( coloring, menuHandle, colorUpdater );
 		colorBarOverlay = new ColorBarOverlay( coloringModel, () -> viewer.getBackground() );
@@ -138,6 +150,9 @@ public class MamutViewBvv extends MamutView< OverlayGraphWrapper< Spot, Link >, 
 		onClose( () -> renderSettings.updateListeners().remove( updateListener ) );
 
 		// Notify if models update.
+		final Model model = appModel.getModel();
+		final ModelGraph modelGraph = model.getGraph();
+		modelGraph.addVertexPositionListener( spot -> positionUpdater.accept( spot ) );
 		selectionModel.listeners().add( () -> colorUpdater.run() );
 
 		NavigationActions.install( viewActions, viewer, bdvData.is2D() );

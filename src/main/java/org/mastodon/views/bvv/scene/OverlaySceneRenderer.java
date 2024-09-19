@@ -120,4 +120,14 @@ public class OverlaySceneRenderer< V extends OverlayVertex< V, E >, E extends Ov
 		}
 	}
 
+	public void updatePosition( final V v )
+	{
+		final int t = v.getTimepoint();
+		final FrameRenderer< V > renderer = renderers.get( t );
+		if ( renderer == null )
+			return;
+
+		renderer.updatePosition( v );
+	}
+
 }
