@@ -19,8 +19,6 @@ import org.mastodon.mamut.MamutMenuBuilder;
 import org.mastodon.mamut.ProjectModel;
 import org.mastodon.mamut.io.ProjectLoader;
 import org.mastodon.mamut.model.Link;
-import org.mastodon.mamut.model.Model;
-import org.mastodon.mamut.model.ModelGraph;
 import org.mastodon.mamut.model.ModelOverlayProperties;
 import org.mastodon.mamut.model.Spot;
 import org.mastodon.mamut.model.branch.BranchLink;
@@ -41,6 +39,7 @@ import org.mastodon.views.bdv.overlay.ui.RenderSettingsManager;
 import org.mastodon.views.bdv.overlay.wrap.OverlayEdgeWrapper;
 import org.mastodon.views.bdv.overlay.wrap.OverlayGraphWrapper;
 import org.mastodon.views.bdv.overlay.wrap.OverlayVertexWrapper;
+import org.mastodon.views.bvv.scene.OverlaySceneRenderer;
 import org.scijava.Context;
 import org.scijava.thread.ThreadService;
 import org.scijava.ui.behaviour.io.InputTriggerConfig;
@@ -107,55 +106,28 @@ public class MamutViewBvv extends MamutView< OverlayGraphWrapper< Spot, Link >, 
 		// we need the coloring now.
 		final GraphColorGeneratorAdapter< Spot, Link, OverlayVertexWrapper< Spot, Link >, OverlayEdgeWrapper< Spot, Link > > coloring = new GraphColorGeneratorAdapter<>( viewGraph.getVertexMap(), viewGraph.getEdgeMap() );
 
+		// This view's render settings
+		final RenderSettingsManager renderSettingsManager = appModel.getWindowManager().getManager( RenderSettingsManager.class );
+		final RenderSettings renderSettings = renderSettingsManager.getForwardDefaultStyle();
+
 		// The spot & link overlay.
-		final OverlayGraphBvvRenderer< OverlayVertexWrapper< Spot, Link >, OverlayEdgeWrapper< Spot, Link > > tracksOverlay = createRenderer(
+		final OverlaySceneRenderer< OverlayVertexWrapper< Spot, Link >, OverlayEdgeWrapper< Spot, Link > > tracksOverlay = createRenderer(
 				viewGraph,
 				highlightModel,
 				focusModel,
 				selectionModel,
-				coloring );
+				coloring,
+				renderSettings );
 		viewer.setRenderScene( tracksOverlay );
 
-		// A runnable called to update everything in the overlay.
-		final Runnable refresher =
-				() -> {
-					tracksOverlay.invalidate();
-					viewer.requestRepaint( RepaintType.SCENE );
-				};
-
-		coloringModel = registerColoring( coloring, menuHandle, () -> refresher.run() );
+		coloringModel = registerColoring( coloring, menuHandle, () -> viewer.requestRepaint( RepaintType.SCENE ) );
 		colorBarOverlay = new ColorBarOverlay( coloringModel, () -> viewer.getBackground() );
 		registerColorbarOverlay( colorBarOverlay, colorbarMenuHandle, () -> viewer.requestRepaint( RepaintType.SCENE ) );
 
-		final RenderSettingsManager renderSettingsManager = appModel.getWindowManager().getManager( RenderSettingsManager.class );
-		final RenderSettings renderSettings = renderSettingsManager.getForwardDefaultStyle();
-		tracksOverlay.setRenderSettings( renderSettings );
 
-		final UpdateListener updateListener = () -> refresher.run();
+		final UpdateListener updateListener = () -> viewer.requestRepaint( RepaintType.SCENE );
 		renderSettings.updateListeners().add( updateListener );
 		onClose( () -> renderSettings.updateListeners().remove( updateListener ) );
-
-		final Model model = appModel.getModel();
-		final ModelGraph modelGraph = model.getGraph();
-
-		highlightModel.listeners().add( () -> viewer.requestRepaint( RepaintType.SCENE ) );
-		focusModel.listeners().add( () -> viewer.requestRepaint( RepaintType.SCENE ) );
-//		modelGraph.addGraphChangeListener( () -> refresher.run() );
-		modelGraph.addVertexPositionListener( spot -> {
-			final OverlayVertexWrapper< Spot, Link > ref = viewGraph.vertexRef();
-			try
-			{
-				final OverlayVertexWrapper< Spot, Link > v = viewGraph.getVertexMap().getRight( spot, ref );
-				tracksOverlay.updatePosition( v );
-			}
-			finally
-			{
-				viewGraph.releaseRef( ref );
-			}
-			viewer.requestRepaint();
-		} );
-//		modelGraph.addVertexLabelListener( v -> viewer.requestRepaint() );
-		selectionModel.listeners().add( () -> viewer.requestRepaint( RepaintType.SCENE ) );
 
 		NavigationActions.install( viewActions, viewer, bdvData.is2D() );
 		viewer.getTransformEventHandler().install( viewBehaviours );
@@ -187,20 +159,22 @@ public class MamutViewBvv extends MamutView< OverlayGraphWrapper< Spot, Link >, 
 				new ModelOverlayProperties( appModel.getModel().getGraph(), appModel.getRadiusStats() ) );
 	}
 
-	protected OverlayGraphBvvRenderer< OverlayVertexWrapper< Spot, Link >, OverlayEdgeWrapper< Spot, Link > >
+	protected OverlaySceneRenderer< OverlayVertexWrapper< Spot, Link >, OverlayEdgeWrapper< Spot, Link > >
 			createRenderer(
 					final OverlayGraphWrapper< Spot, Link > viewGraph,
 					final HighlightModel< OverlayVertexWrapper< Spot, Link >, OverlayEdgeWrapper< Spot, Link > > highlightModel,
 					final FocusModel< OverlayVertexWrapper< Spot, Link > > focusModel,
 					final SelectionModel< OverlayVertexWrapper< Spot, Link >, OverlayEdgeWrapper< Spot, Link > > selectionModel,
-					final GraphColorGenerator< OverlayVertexWrapper< Spot, Link >, OverlayEdgeWrapper< Spot, Link > > coloring )
+					final GraphColorGenerator< OverlayVertexWrapper< Spot, Link >, OverlayEdgeWrapper< Spot, Link > > coloring,
+					final RenderSettings renderSettings )
 	{
-		return new OverlayGraphBvvRenderer< OverlayVertexWrapper< Spot, Link >, OverlayEdgeWrapper< Spot, Link > >(
+		return new OverlaySceneRenderer< OverlayVertexWrapper< Spot, Link >, OverlayEdgeWrapper< Spot, Link > >(
 				viewGraph,
 				highlightModel,
 				focusModel,
 				selectionModel,
-				coloring );
+				coloring,
+				renderSettings );
 	}
 
 	public static void main( final String[] args )
