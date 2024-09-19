@@ -29,7 +29,6 @@ void main()
     
     // Transform the normal using the transpose of the inverse of 
     // the upper-left 3x3 part of aInstanceMatrix.
-    
-    mat3 normalMatrix = transpose(inverse(mat3(aInstanceMatrix)));
-    fragNormal = normalize(itvm * normalMatrix * sphereNormal);
+    mat3 normalMatrix = transpose( inverse( mat3( aInstanceMatrix ) ) );
+    fragNormal = normalize( itvm * normalMatrix * sphereNormal );
 }
