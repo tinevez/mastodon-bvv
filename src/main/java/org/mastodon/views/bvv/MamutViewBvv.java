@@ -74,10 +74,15 @@ public class MamutViewBvv extends MamutView< OverlayGraphWrapper< Spot, Link >, 
 				windowTitle,
 				groupHandle );
 
+		// Coloring for vertices and edges.
+		final GraphColorGeneratorAdapter< Spot, Link, OverlayVertexWrapper< Spot, Link >, OverlayEdgeWrapper< Spot, Link > > coloring = new GraphColorGeneratorAdapter<>( viewGraph.getVertexMap(), viewGraph.getEdgeMap() );
+
+		// View frame.
 		final VolumeViewerFrameMamut frame = bvv.getViewerFrame();
 		setFrame( frame );
 		frame.setIconImages( BVV_VIEW_ICON );
 
+		// Actions related to the frame.
 		MastodonFrameViewActions.install( viewActions, this );
 		BigVolumeViewerActionsMamut.install( viewActions, bvv );
 
@@ -103,9 +108,6 @@ public class MamutViewBvv extends MamutView< OverlayGraphWrapper< Spot, Link >, 
 		// The content panel.
 		final VolumeViewerPanel viewer = bvv.getViewer();
 
-		// we need the coloring now.
-		final GraphColorGeneratorAdapter< Spot, Link, OverlayVertexWrapper< Spot, Link >, OverlayEdgeWrapper< Spot, Link > > coloring = new GraphColorGeneratorAdapter<>( viewGraph.getVertexMap(), viewGraph.getEdgeMap() );
-
 		// This view's render settings
 		final RenderSettingsManager renderSettingsManager = appModel.getWindowManager().getManager( RenderSettingsManager.class );
 		final RenderSettings renderSettings = renderSettingsManager.getForwardDefaultStyle();
@@ -120,12 +122,18 @@ public class MamutViewBvv extends MamutView< OverlayGraphWrapper< Spot, Link >, 
 				renderSettings );
 		viewer.setRenderScene( tracksOverlay );
 
-		coloringModel = registerColoring( coloring, menuHandle, () -> viewer.requestRepaint( RepaintType.SCENE ) );
+		// Listeners that will update the scene.
+		final Runnable colorUpdater = () -> {
+			tracksOverlay.updateColors();
+			viewer.requestRepaint( RepaintType.SCENE );
+		};
+
+		coloringModel = registerColoring( coloring, menuHandle, colorUpdater );
 		colorBarOverlay = new ColorBarOverlay( coloringModel, () -> viewer.getBackground() );
 		registerColorbarOverlay( colorBarOverlay, colorbarMenuHandle, () -> viewer.requestRepaint( RepaintType.SCENE ) );
 
-
-		final UpdateListener updateListener = () -> viewer.requestRepaint( RepaintType.SCENE );
+		// Notifies when the render settings change.
+		final UpdateListener updateListener = () -> colorUpdater.run();
 		renderSettings.updateListeners().add( updateListener );
 		onClose( () -> renderSettings.updateListeners().remove( updateListener ) );
 

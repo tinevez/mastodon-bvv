@@ -75,7 +75,11 @@ public class OverlaySceneRenderer< V extends OverlayVertex< V, E >, E extends Ov
 		final V ref = graph.vertexRef();
 		try
 		{
-			final FrameRenderer< V > renderer = new FrameRenderer<>();
+			final FrameRenderer< V > renderer = new FrameRenderer<>(
+					highlight,
+					selection,
+					coloring,
+					settings );
 			renderer.rebuild( si, index.readLock(), ref );
 			return renderer;
 		}
@@ -84,4 +88,36 @@ public class OverlaySceneRenderer< V extends OverlayVertex< V, E >, E extends Ov
 			graph.releaseRef( ref );
 		}
 	}
+
+	/**
+	 * Signals that the color should be updated.
+	 * 
+	 * TODO Right now this iterates through ALL the vertices of the model to
+	 * renew their color. The buffers are actually transferred to the GPU only
+	 * when needed, but we still iterate on all the spots here. Is there a way
+	 * to make this 'lazy'? This would require accessing the vertices at render
+	 * time...
+	 */
+	public void updateColors()
+	{
+		final SpatioTemporalIndex< V > index = graph.getIndex();
+		for ( final Integer t : renderers.keySet() )
+		{
+			final FrameRenderer< V > renderer = renderers.get( t );
+			if ( renderer == null )
+				continue;
+
+			final SpatialIndex< V > si = index.getSpatialIndex( t );
+			final V ref = graph.vertexRef();
+			try
+			{
+				renderer.updateColors( si, ref );
+			}
+			finally
+			{
+				graph.releaseRef( ref );
+			}
+		}
+	}
+
 }

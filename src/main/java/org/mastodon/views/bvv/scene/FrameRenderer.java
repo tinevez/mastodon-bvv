@@ -4,10 +4,10 @@ import static com.jogamp.opengl.GL.GL_ARRAY_BUFFER;
 import static com.jogamp.opengl.GL.GL_DYNAMIC_DRAW;
 import static com.jogamp.opengl.GL.GL_ELEMENT_ARRAY_BUFFER;
 import static com.jogamp.opengl.GL.GL_FLOAT;
-import static com.jogamp.opengl.GL.GL_STATIC_DRAW;
 import static com.jogamp.opengl.GL.GL_TRIANGLES;
 import static com.jogamp.opengl.GL.GL_UNSIGNED_INT;
 
+import java.awt.Color;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.util.Iterator;
@@ -16,8 +16,12 @@ import java.util.concurrent.locks.Lock;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
+import org.mastodon.model.HighlightModel;
+import org.mastodon.model.SelectionModel;
 import org.mastodon.spatial.SpatialIndex;
+import org.mastodon.ui.coloring.GraphColorGenerator;
 import org.mastodon.views.bdv.overlay.OverlayVertex;
+import org.mastodon.views.bdv.overlay.RenderSettings;
 import org.mastodon.views.bdv.overlay.util.JamaEigenvalueDecomposition;
 
 import com.jogamp.opengl.GL;
@@ -36,6 +40,7 @@ import net.imglib2.mesh.Mesh;
 import net.imglib2.mesh.Meshes;
 import net.imglib2.mesh.impl.nio.BufferMesh;
 import net.imglib2.mesh.util.Icosahedron;
+import net.imglib2.type.numeric.ARGBType;
 
 /**
  * Renders all the vertices of one frame at ellispoids in OpenGL.
@@ -67,14 +72,42 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 
 	private int colorVBO;
 
-	public FrameRenderer()
+	private final GraphColorGenerator< V, ? > coloring;
+
+	private final HighlightModel< V, ? > highlight;
+
+	private final SelectionModel< V, ? > selection;
+
+	private final RenderSettings settings;
+
+	private boolean initialized;
+
+	public FrameRenderer(
+			final HighlightModel< V, ? > highlight,
+			final SelectionModel< V, ? > selection,
+			final GraphColorGenerator< V, ? > coloring,
+			final RenderSettings settings )
 	{
+		this.highlight = highlight;
+		this.selection = selection;
+		this.coloring = coloring;
+		this.settings = settings;
+
 		// Shader gen.
 		final Segment shaderVp = new SegmentTemplate( FrameRenderer.class, "vertexShader3D.glsl" ).instantiate();
 		final Segment shaderFp = new SegmentTemplate( FrameRenderer.class, "fragmentShader3D.glsl" ).instantiate();
 		prog = new DefaultShader( shaderVp.getCode(), shaderFp.getCode() );
+
+		this.initialized = false;
 	}
 
+	/**
+	 * Recreates all the buffers that will be transferred to the GPU later.
+	 * 
+	 * @param si
+	 * @param lock
+	 * @param ref
+	 */
 	void rebuild( final SpatialIndex< V > si, final Lock lock, final V ref )
 	{
 		final ModelDataCreator< V > creator = new ModelDataCreator<>();
@@ -82,6 +115,8 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 		try
 		{
 			this.instanceCount = si.size();
+			final int defColor = settings.getColorSpot();
+			final V highlightedVertex = highlight.getHighlightedVertex( ref );
 
 			// Model matrix buffer (4x4)
 			this.matrixBuffer = GLBuffers.newDirectFloatBuffer( 16 * instanceCount );
@@ -90,10 +125,10 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 			// Translation buffer (3x1)
 			this.translationBuffer = GLBuffers.newDirectFloatBuffer( 3 * instanceCount );
 			final Vector3f pos = new Vector3f();
-			
+
 			// Color buffer (3x1)
 			this.colorBuffer = GLBuffers.newDirectFloatBuffer( 3 * instanceCount );
-			final Vector3f color = new Vector3f();
+			final Vector3f colorVector = new Vector3f();
 
 			// Map of spot id -> instance index.
 			this.idMap = new TIntIntHashMap( instanceCount, 0.5f, -1, -1 );
@@ -117,11 +152,12 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 				pos.get( i * 3, translationBuffer );
 
 				// Instance color.
-				creator.inputColorVector( v, color );
-				color.get( i * 3, colorBuffer );
+				getVertexColor( v, highlightedVertex, defColor, colorVector );
+				colorVector.get( i * 3, colorBuffer );
 			}
-			
+
 			// Prepare lazy initializer.
+			// TODO
 		}
 		finally
 		{
@@ -130,11 +166,42 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 	}
 
 	/*
+	 * Update methods
+	 */
+
+	/**
+	 * Recreates the color buffer that will be transferred to the GPU in the
+	 * next rendering cycle. This assumes that the vertex collection did not
+	 * change.
+	 * 
+	 * @param si
+	 * @param ref
+	 */
+	void updateColors( final SpatialIndex< V > si, final V ref )
+	{
+		this.colorBuffer = GLBuffers.newDirectFloatBuffer( 3 * instanceCount );
+
+		final int defColor = settings.getColorSpot();
+		final V highlightedVertex = highlight.getHighlightedVertex( ref );
+		final Vector3f colorVector = new Vector3f();
+		final Iterator< V > it = si.iterator();
+		for ( int i = 0; i < instanceCount; i++ )
+		{
+			final V v = it.next();
+			final int id = v.getInternalPoolIndex();
+			final int index = idMap.get( id );
+
+			getVertexColor( v, highlightedVertex, defColor, colorVector );
+			colorVector.get( index * 3, colorBuffer );
+		}
+	}
+
+	/*
 	 * OpenGL methods.
 	 */
 
 	private final Matrix4f pvm = new Matrix4f();
-	
+
 	private final Matrix4f view = new Matrix4f();
 
 	private final Matrix4f vm = new Matrix4f();
@@ -145,11 +212,13 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 
 	void render( final GL3 gl, final RenderData data )
 	{
-		if ( matrixBuffer != null )
-		{
-			// We created the data, but need to pass it to the GPU.
+		// Are we initialized?
+		if ( !initialized )
 			init( gl );
-		}
+
+		// Did the color changed?
+		if ( colorBuffer != null )
+			transferColorBuffer( gl );
 
 		// Get current view matrices.
 		pvm.set( data.getPv() );
@@ -182,6 +251,20 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 		gl.glBindVertexArray( 0 );
 	}
 
+	private void transferColorBuffer( final GL3 gl )
+	{
+		if ( colorBuffer == null )
+			throw new IllegalStateException( "The color buffer has not been built." );
+
+		gl.glBindBuffer( GL_ARRAY_BUFFER, colorVBO );
+		gl.glBufferSubData(
+				GL_ARRAY_BUFFER,
+				0,
+				colorBuffer.capacity() * Float.BYTES,
+				colorBuffer );
+		colorBuffer = null;
+	}
+
 	private void init( final GL3 gl )
 	{
 		if ( matrixBuffer == null || translationBuffer == null | colorBuffer == null )
@@ -205,7 +288,7 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 		gl.glBufferData( GL_ARRAY_BUFFER,
 				vertexBuffer.capacity() * Float.BYTES,
 				vertexBuffer,
-				GL_STATIC_DRAW );
+				GL_DYNAMIC_DRAW );
 		// Set up vertex attribute pointer -> layout = 0
 		gl.glVertexAttribPointer( 0, 3, GL_FLOAT, false, 3 * Float.BYTES, 0 );
 		gl.glEnableVertexAttribArray( 0 );
@@ -218,7 +301,7 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 		gl.glBufferData( GL_ELEMENT_ARRAY_BUFFER,
 				indexBuffer.capacity() * Integer.BYTES,
 				indexBuffer,
-				GL_STATIC_DRAW );
+				GL_DYNAMIC_DRAW );
 
 		/*
 		 * Bind instance VBO for model matrices.
@@ -228,7 +311,7 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 		gl.glBufferData( GL.GL_ARRAY_BUFFER,
 				matrixBuffer.capacity() * Float.BYTES,
 				matrixBuffer,
-				GL.GL_STATIC_DRAW );
+				GL.GL_DYNAMIC_DRAW );
 		// Set up instance attribute pointers -> layout = 1 to 4
 		final int vec4Size = 4 * Float.BYTES;
 		for ( int i = 0; i < 4; i++ )
@@ -252,7 +335,8 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 				translationBuffer.capacity() * Float.BYTES,
 				translationBuffer,
 				GL_DYNAMIC_DRAW );
-		// Set up instance attribute pointer for translation vectors -> layout = 5
+		// Set up instance attribute pointer for translation vectors -> layout =
+		// 5
 		gl.glEnableVertexAttribArray( 5 );
 		gl.glVertexAttribPointer( 5,
 				3,
@@ -270,7 +354,7 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 		gl.glBufferData( GL_ARRAY_BUFFER,
 				colorBuffer.capacity() * Float.BYTES,
 				colorBuffer,
-				GL_STATIC_DRAW );
+				GL_DYNAMIC_DRAW );
 		// Set up instance attribute pointer for color vectors -> layout = 6
 		gl.glEnableVertexAttribArray( 6 );
 		gl.glVertexAttribPointer( 6,
@@ -290,6 +374,7 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 		matrixBuffer = null;
 		translationBuffer = null;
 		colorBuffer = null;
+		initialized = true;
 	}
 
 	private void cleanup( final GL3 gl )
@@ -301,6 +386,78 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 				shapeVBO,
 				translationVBO,
 				colorVBO }, 0 );
+	}
+
+	/*
+	 * Color utilities.
+	 */
+
+	private void getVertexColor( final V v, final V highlightedVertex, final int defColor, final Vector3f colorVector )
+	{
+		final boolean isSelected = selection.isSelected( v );
+		final boolean isHighlighted = v.equals( highlightedVertex );
+		final int color = coloring.color( v );
+		final Color c = getColor( isSelected, isHighlighted, defColor, color );
+		colorVector.x = c.getRed() / 255f;
+		colorVector.y = c.getGreen() / 255f;
+		colorVector.z = c.getBlue() / 255f;
+	}
+
+	private static Color getColor(
+			final boolean isSelected,
+			final boolean isHighlighted,
+			final int defColor,
+			final int color )
+	{
+		final int r0, g0, b0;
+		if ( color == 0 )
+		{
+			// No coloring. Color are set by the RenderSettings.
+			r0 = ( defColor >> 16 ) & 0xff;
+			g0 = ( defColor >> 8 ) & 0xff;
+			b0 = ( defColor ) & 0xff;
+		}
+		else
+		{
+			// Use the generated color.
+			final int compColor = complementaryColor( defColor );
+			r0 = ( ( ( isSelected ? compColor : color ) >> 16 ) & 0xff );
+			g0 = ( ( ( isSelected ? compColor : color ) >> 8 ) & 0xff );
+			b0 = ( ( isSelected ? compColor : color ) & 0xff );
+		}
+		final double r = r0 / 255.;
+		final double g = g0 / 255.;
+		final double b = b0 / 255.;
+		final double a = 1.;
+		return new Color( truncRGBA( r, g, b, a ), true );
+	}
+
+	private static final int complementaryColor( final int color )
+	{
+		return 0xff000000 | ~color;
+	}
+
+	private static int trunc255( final int i )
+	{
+		return Math.min( 255, Math.max( 0, i ) );
+	}
+
+	private static int truncRGBA( final int r, final int g, final int b, final int a )
+	{
+		return ARGBType.rgba(
+				trunc255( r ),
+				trunc255( g ),
+				trunc255( b ),
+				trunc255( a ) );
+	}
+
+	private static int truncRGBA( final double r, final double g, final double b, final double a )
+	{
+		return truncRGBA(
+				( int ) ( 255 * r ),
+				( int ) ( 255 * g ),
+				( int ) ( 255 * b ),
+				( int ) ( 255 * a ) );
 	}
 
 	/*
@@ -343,15 +500,6 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 
 			modelMatrix.set( rotation );
 			modelMatrix.mul( scaling );
-		}
-
-		public void inputColorVector( final V v, final Vector3f holder )
-		{
-			// TODO Go beyond the yellow color.
-			holder.x = 0.9f;
-			holder.y = 0.8f;
-			holder.z = 0.1f;
-
 		}
 
 		public void inputPositionVector( final V v, final Vector3f holder )
