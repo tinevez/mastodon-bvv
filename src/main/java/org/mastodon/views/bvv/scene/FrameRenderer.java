@@ -413,17 +413,26 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 		if ( color == 0 )
 		{
 			// No coloring. Color are set by the RenderSettings.
-			r0 = ( defColor >> 16 ) & 0xff;
-			g0 = ( defColor >> 8 ) & 0xff;
-			b0 = ( defColor ) & 0xff;
+			if ( isSelected )
+			{
+				final int compColor = complementaryColor( defColor );
+				r0 = ( compColor >> 16 ) & 0xff;
+				g0 = ( compColor >> 8 ) & 0xff;
+				b0 = ( compColor ) & 0xff;
+			}
+			else
+			{
+				r0 = ( defColor >> 16 ) & 0xff;
+				g0 = ( defColor >> 8 ) & 0xff;
+				b0 = ( defColor ) & 0xff;
+			}
 		}
 		else
 		{
 			// Use the generated color.
-			final int compColor = complementaryColor( defColor );
-			r0 = ( ( ( isSelected ? compColor : color ) >> 16 ) & 0xff );
-			g0 = ( ( ( isSelected ? compColor : color ) >> 8 ) & 0xff );
-			b0 = ( ( isSelected ? compColor : color ) & 0xff );
+			r0 = isSelected ? 255 : ( ( color >> 16 ) & 0xff );
+			g0 = isSelected ? 0 : ( ( color >> 8 ) & 0xff );
+			b0 = isSelected ? 0 : ( color & 0xff );
 		}
 		final double r = r0 / 255.;
 		final double g = g0 / 255.;

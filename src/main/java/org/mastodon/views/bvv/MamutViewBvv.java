@@ -137,6 +137,9 @@ public class MamutViewBvv extends MamutView< OverlayGraphWrapper< Spot, Link >, 
 		renderSettings.updateListeners().add( updateListener );
 		onClose( () -> renderSettings.updateListeners().remove( updateListener ) );
 
+		// Notify if models update.
+		selectionModel.listeners().add( () -> colorUpdater.run() );
+
 		NavigationActions.install( viewActions, viewer, bdvData.is2D() );
 		viewer.getTransformEventHandler().install( viewBehaviours );
 
