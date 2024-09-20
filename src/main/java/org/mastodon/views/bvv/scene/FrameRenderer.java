@@ -123,8 +123,8 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 			final V highlightedVertex = highlight.getHighlightedVertex( ref );
 
 			// Model matrix buffer (4x4)
-			this.matrixBuffer = GLBuffers.newDirectFloatBuffer( 16 * instanceCount );
-			final Matrix4f modelMatrix = new Matrix4f();
+			this.matrixBuffer = GLBuffers.newDirectFloatBuffer( 9 * instanceCount );
+			final Matrix3f modelMatrix = new Matrix3f();
 
 			// Translation buffer (3x1)
 			this.translationBuffer = GLBuffers.newDirectFloatBuffer( 3 * instanceCount );
@@ -149,7 +149,7 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 
 				// Model matrix for covariance.
 				creator.inputShapeMatrix( v, modelMatrix );
-				modelMatrix.get( i * 16, matrixBuffer );
+				modelMatrix.get( i * 9, matrixBuffer );
 
 				// X, Y, Z translation.
 				creator.inputPositionVector( v, pos );
@@ -338,17 +338,17 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 				matrixBuffer.capacity() * Float.BYTES,
 				matrixBuffer,
 				GL.GL_DYNAMIC_DRAW );
-		// Set up instance attribute pointers -> layout = 1 to 4
-		final int vec4Size = 4 * Float.BYTES;
-		for ( int i = 0; i < 4; i++ )
+		// Set up instance attribute pointers -> layout = 1 to 3
+		final int vec3Size = 3 * Float.BYTES;
+		for ( int i = 0; i < 3; i++ )
 		{
 			gl.glEnableVertexAttribArray( 1 + i );
 			gl.glVertexAttribPointer( 1 + i,
-					4,
+					3,
 					GL_FLOAT,
 					false,
-					16 * Float.BYTES,
-					i * vec4Size );
+					9 * Float.BYTES,
+					i * vec3Size );
 			gl.glVertexAttribDivisor( 1 + i, 1 );
 		}
 
@@ -361,16 +361,15 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 				translationBuffer.capacity() * Float.BYTES,
 				translationBuffer,
 				GL_DYNAMIC_DRAW );
-		// Set up instance attribute pointer for translation vectors -> layout =
-		// 5
-		gl.glEnableVertexAttribArray( 5 );
-		gl.glVertexAttribPointer( 5,
+		// Set up instance attribute pointer for translation vectors -> layout = 4
+		gl.glEnableVertexAttribArray( 4 );
+		gl.glVertexAttribPointer( 4,
 				3,
 				GL_FLOAT,
 				false,
 				3 * Float.BYTES,
 				0 );
-		gl.glVertexAttribDivisor( 5, 1 );
+		gl.glVertexAttribDivisor( 4, 1 );
 
 		/*
 		 * Bind instance VBO for object colors.
@@ -381,15 +380,15 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 				colorBuffer.capacity() * Float.BYTES,
 				colorBuffer,
 				GL_DYNAMIC_DRAW );
-		// Set up instance attribute pointer for color vectors -> layout = 6
-		gl.glEnableVertexAttribArray( 6 );
-		gl.glVertexAttribPointer( 6,
+		// Set up instance attribute pointer for color vectors -> layout = 5
+		gl.glEnableVertexAttribArray( 5 );
+		gl.glVertexAttribPointer( 5,
 				3,
 				GL_FLOAT,
 				false,
 				3 * Float.BYTES,
 				0 );
-		gl.glVertexAttribDivisor( 6, 1 );
+		gl.glVertexAttribDivisor( 5, 1 );
 
 		// Unbind VAO
 		gl.glBindVertexArray( 0 );
@@ -523,17 +522,17 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 	private static class ModelDataCreator< V extends OverlayVertex< V, ? > >
 	{
 
-		final JamaEigenvalueDecomposition eig3 = new JamaEigenvalueDecomposition( 3 );
+		private final JamaEigenvalueDecomposition eig3 = new JamaEigenvalueDecomposition( 3 );
 
-		final double[] radii = new double[ 3 ];
+		private final double[] radii = new double[ 3 ];
 
-		final double[][] S = new double[ 3 ][ 3 ];
+		private final double[][] S = new double[ 3 ][ 3 ];
 
-		final Matrix4f scaling = new Matrix4f();
+		private final Matrix3f scaling = new Matrix3f();
 
-		final Matrix3f rotation = new Matrix3f();
+		private final Matrix3f rotation = new Matrix3f();
 
-		private void inputShapeMatrix( final V v, final Matrix4f modelMatrix )
+		private void inputShapeMatrix( final V v, final Matrix3f modelMatrix )
 		{
 			v.getCovariance( S );
 

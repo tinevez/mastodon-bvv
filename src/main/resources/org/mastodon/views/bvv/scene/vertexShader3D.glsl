@@ -1,7 +1,7 @@
 layout (location = 0) in vec3 aPos;
-layout (location = 1) in mat4 aInstanceMatrix;
-layout (location = 5) in vec3 aTranslation;
-layout (location = 6) in vec3 aColor;
+layout (location = 1) in mat3 aInstanceMatrix;
+layout (location = 4) in vec3 aTranslation;
+layout (location = 5) in vec3 aColor;
 
 uniform mat4 pvm;
 uniform mat4 vm;
@@ -13,8 +13,16 @@ out vec4 fragColor;
 
 void main()
 {
-	vec4 worldPos = aInstanceMatrix * vec4( aPos, 1. );
-	worldPos.xyz += aTranslation;
+	// Build transform matrix by concatenating 
+	// scaling+rotation matrix with translation vector.
+	mat4 transformMatrix = mat4(
+        vec4( aInstanceMatrix[0], 0. ),
+        vec4( aInstanceMatrix[1], 0. ),
+        vec4( aInstanceMatrix[2], 0. ),
+        vec4( aTranslation, 1. )
+    );
+	
+	vec4 worldPos = transformMatrix * vec4( aPos, 1. );
     gl_Position = pvm * worldPos;
     
     fragColor = vec4( aColor, 1. );
@@ -28,7 +36,7 @@ void main()
     vec3 sphereNormal = aPos;
     
     // Transform the normal using the transpose of the inverse of 
-    // the upper-left 3x3 part of aInstanceMatrix.
-    mat3 normalMatrix = transpose( inverse( mat3( aInstanceMatrix ) ) );
+    // aInstanceMatrix.
+    mat3 normalMatrix = transpose( inverse( aInstanceMatrix ) );
     fragNormal = normalize( itvm * normalMatrix * sphereNormal );
 }
