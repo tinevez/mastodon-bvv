@@ -1,26 +1,32 @@
 package org.mastodon.views.bvv;
 
 import static org.mastodon.app.MastodonIcons.BVV_VIEW_ICON;
+import static org.mastodon.app.ui.ViewMenuBuilder.item;
+import static org.mastodon.app.ui.ViewMenuBuilder.separator;
 import static org.mastodon.mamut.MamutMenuBuilder.colorMenu;
 import static org.mastodon.mamut.MamutMenuBuilder.colorbarMenu;
 import static org.mastodon.mamut.MamutMenuBuilder.editMenu;
 import static org.mastodon.mamut.MamutMenuBuilder.fileMenu;
+import static org.mastodon.mamut.MamutMenuBuilder.tagSetMenu;
 import static org.mastodon.mamut.MamutMenuBuilder.viewMenu;
 
 import java.util.function.Consumer;
 
 import javax.swing.ActionMap;
 import javax.swing.JFrame;
+import javax.swing.JPanel;
 import javax.swing.WindowConstants;
 
 import org.mastodon.adapter.RefBimap;
 import org.mastodon.app.ui.MastodonFrameViewActions;
+import org.mastodon.app.ui.SearchVertexLabel;
 import org.mastodon.app.ui.ViewMenu;
 import org.mastodon.app.ui.ViewMenuBuilder.JMenuHandle;
 import org.mastodon.graph.GraphListener;
 import org.mastodon.mamut.MainWindow;
 import org.mastodon.mamut.MamutMenuBuilder;
 import org.mastodon.mamut.ProjectModel;
+import org.mastodon.mamut.UndoActions;
 import org.mastodon.mamut.io.ProjectLoader;
 import org.mastodon.mamut.model.Link;
 import org.mastodon.mamut.model.Model;
@@ -33,8 +39,11 @@ import org.mastodon.mamut.views.MamutView;
 import org.mastodon.model.AutoNavigateFocusModel;
 import org.mastodon.model.FocusModel;
 import org.mastodon.model.HighlightModel;
+import org.mastodon.model.NavigationHandler;
 import org.mastodon.model.SelectionModel;
+import org.mastodon.ui.ExportViewActions;
 import org.mastodon.ui.FocusActions;
+import org.mastodon.ui.SelectionActions;
 import org.mastodon.ui.coloring.ColorBarOverlay;
 import org.mastodon.ui.coloring.ColoringModelMain;
 import org.mastodon.ui.coloring.GraphColorGenerator;
@@ -55,6 +64,7 @@ import org.scijava.thread.ThreadService;
 import org.scijava.ui.behaviour.io.InputTriggerConfig;
 import org.scijava.ui.behaviour.util.Actions;
 
+import bdv.BigDataViewerActions;
 import bdv.tools.InitializeViewerState;
 import bdv.viewer.NavigationActions;
 import bvv.core.VolumeViewerPanel;
@@ -204,11 +214,55 @@ public class MamutViewBvv extends MamutView< OverlayGraphWrapper< Spot, Link >, 
 				colorBarOverlay, appModel.getKeymap() );
 		onClose( onCloseDialog );
 
+		ExportViewActions.install( viewActions, frame.getViewerPanel().getDisplayComponent(), frame, "BDV" );
+
+		// Search box.
+		final NavigationHandler< Spot, Link > navigationHandlerAdapter = groupHandle.getModel( appModel.NAVIGATION );
+		final JPanel searchField = SearchVertexLabel.install(
+				viewActions,
+				appModel.getModel().getGraph(),
+				navigationHandlerAdapter,
+				appModel.getSelectionModel(),
+				appModel.getFocusModel(),
+				viewer );
+		frame.getSettingsPanel().add( searchField );
+
+		// Properly close.
 		onClose( () -> viewer.stop() );
 		onClose( () -> tracksOverlay.stop() );
 
-		frame.setDefaultCloseOperation( JFrame.EXIT_ON_CLOSE );
-		frame.setVisible( true );
+		// Give focus to display so that it can receive key-presses immediately.
+		viewer.getDisplay().requestFocusInWindow();
+
+		// Flesh out the menus.
+		MainWindow.addMenus( menu, actionMap );
+		appModel.getWindowManager().addWindowMenu( menu, actionMap );
+		MamutMenuBuilder.build( menu, actionMap,
+				fileMenu(
+						separator(),
+						item( BigDataViewerActions.LOAD_SETTINGS ),
+						item( BigDataViewerActions.SAVE_SETTINGS ),
+						separator(),
+						item( RecordMovieDialog.RECORD_MOVIE_DIALOG ),
+						separator(),
+						item( ExportViewActions.EXPORT_VIEW_TO_SVG ),
+						item( ExportViewActions.EXPORT_VIEW_TO_PNG ) ),
+				viewMenu(
+						separator(),
+						item( MastodonFrameViewActions.TOGGLE_SETTINGS_PANEL ) ),
+				editMenu(
+						item( UndoActions.UNDO ),
+						item( UndoActions.REDO ),
+						separator(),
+						item( SelectionActions.DELETE_SELECTION ),
+						item( SelectionActions.SELECT_WHOLE_TRACK ),
+						item( SelectionActions.SELECT_TRACK_DOWNWARD ),
+						item( SelectionActions.SELECT_TRACK_UPWARD ),
+						separator(),
+						tagSetMenu( tagSetMenuHandle ) ) );
+		appModel.getPlugins().addMenus( menu );
+
+		registerTagSetMenu( tagSetMenuHandle, colorUpdater );
 	}
 
 	private static OverlayGraphWrapper< Spot, Link > createViewGraph( final ProjectModel appModel )
@@ -306,10 +360,12 @@ public class MamutViewBvv extends MamutView< OverlayGraphWrapper< Spot, Link >, 
 					final MainWindow win = new MainWindow( projectModel );
 					win.setVisible( true );
 					win.setDefaultCloseOperation( WindowConstants.EXIT_ON_CLOSE );
-					new MamutViewBvv(
+					final MamutViewBvv viewBvv = new MamutViewBvv(
 							projectModel,
 							createViewGraph( projectModel ),
 							new String[] { KeyConfigContexts.BIGDATAVIEWER } );
+					viewBvv.getFrame().setVisible( true );
+					viewBvv.getFrame().setDefaultCloseOperation( JFrame.EXIT_ON_CLOSE );
 				}
 				catch ( final Exception e )
 				{
