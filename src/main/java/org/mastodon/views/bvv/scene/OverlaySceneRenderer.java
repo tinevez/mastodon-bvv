@@ -139,4 +139,16 @@ public class OverlaySceneRenderer< V extends OverlayVertex< V, E >, E extends Ov
 		for ( final Integer t : renderers.keySet() )
 			rebuild( t );
 	}
+
+	public void stop()
+	{
+		for ( final Integer t : renderers.keySet() )
+		{
+			final FrameRenderer< V > renderer = renderers.get( t );
+			if ( renderer == null )
+				continue;
+
+			renderer.stop();
+		}
+	}
 }

@@ -73,6 +73,8 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 
 	private final ViewMatrixUpdater viewMatrixUpdater;
 
+	private boolean doCloseRenderer = false;
+
 
 	public FrameRenderer(
 			final Supplier< SpatialIndex< V > > dataSupplier,
@@ -118,12 +120,24 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 		doUpdateShape = true;
 	}
 
+	void stop()
+	{
+		doCloseRenderer = true;
+	}
+
 	/*
 	 * OpenGL methods.
 	 */
 
 	void render( final GL3 gl, final RenderData data )
 	{
+		// Is the display closing and should we close everything?
+		if ( doCloseRenderer  )
+		{
+			cleanup( gl );
+			return;
+		}
+
 		// Are we initialized?
 		if ( doRegenAll )
 			init( gl );
@@ -316,6 +330,9 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 
 	private void cleanup( final GL3 gl )
 	{
+		if ( vao == 0 )
+			return;
+
 		gl.glDeleteVertexArrays( 1, new int[] { vao }, 0 );
 		gl.glDeleteBuffers( 5, new int[] {
 				verticesVBO,
@@ -323,6 +340,9 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 				shapeVBO,
 				translationVBO,
 				colorVBO }, 0 );
+
+		// Signal we have been cleaned.
+		vao = 0;
 	}
 
 	/*

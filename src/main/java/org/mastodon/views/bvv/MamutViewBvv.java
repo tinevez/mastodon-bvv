@@ -200,6 +200,7 @@ public class MamutViewBvv extends MamutView< OverlayGraphWrapper< Spot, Link >, 
 		}, "reset transform", "R" );
 
 		onClose( () -> viewer.stop() );
+		onClose( () -> tracksOverlay.stop() );
 
 		frame.setDefaultCloseOperation( JFrame.EXIT_ON_CLOSE );
 		frame.setVisible( true );
