@@ -17,6 +17,7 @@ import org.mastodon.adapter.RefBimap;
 import org.mastodon.app.ui.MastodonFrameViewActions;
 import org.mastodon.app.ui.ViewMenu;
 import org.mastodon.app.ui.ViewMenuBuilder.JMenuHandle;
+import org.mastodon.graph.GraphListener;
 import org.mastodon.mamut.MainWindow;
 import org.mastodon.mamut.MamutMenuBuilder;
 import org.mastodon.mamut.ProjectModel;
@@ -167,6 +168,7 @@ public class MamutViewBvv extends MamutView< OverlayGraphWrapper< Spot, Link >, 
 		// Notify if models update.
 		final Model model = appModel.getModel();
 		final ModelGraph modelGraph = model.getGraph();
+		modelGraph.addGraphListener( new MyGraphListener( tracksOverlay, () -> viewer.requestRepaint( RepaintType.FULL ) ) );
 		modelGraph.addVertexPositionListener( spot -> positionUpdater.accept( spot ) );
 		modelGraph.addVertexCovarianceListener( spot -> shapeUpdater.accept( spot ) );
 		selectionModel.listeners().add( () -> colorUpdater.run() );
@@ -217,6 +219,54 @@ public class MamutViewBvv extends MamutView< OverlayGraphWrapper< Spot, Link >, 
 				selectionModel,
 				coloring,
 				renderSettings );
+	}
+
+	/**
+	 * Forwards {@link GraphListener} events of the model graph to the track
+	 * overlay.
+	 */
+	private static class MyGraphListener implements GraphListener< Spot, Link >
+	{
+
+		private final OverlaySceneRenderer< OverlayVertexWrapper< Spot, Link >, OverlayEdgeWrapper< Spot, Link > > tracksOverlay;
+
+		private final Runnable refresh;
+
+		public MyGraphListener( final OverlaySceneRenderer< OverlayVertexWrapper< Spot, Link >, OverlayEdgeWrapper< Spot, Link > > tracksOverlay,
+				final Runnable refresh )
+		{
+			this.tracksOverlay = tracksOverlay;
+			this.refresh = refresh;
+		}
+
+		@Override
+		public void graphRebuilt()
+		{
+			tracksOverlay.rebuild();
+			refresh.run();
+		}
+
+		@Override
+		public void vertexAdded( final Spot s )
+		{
+			tracksOverlay.rebuild( s.getTimepoint() );
+			refresh.run();
+		}
+
+		@Override
+		public void vertexRemoved( final Spot s )
+		{
+			vertexAdded( s );
+		}
+
+		@Override
+		public void edgeAdded( final Link l )
+		{}
+
+		@Override
+		public void edgeRemoved( final Link l )
+		{}
+
 	}
 
 	public static void main( final String[] args )

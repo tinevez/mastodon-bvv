@@ -22,6 +22,14 @@ import com.jogamp.opengl.GL3;
 import bvv.core.VolumeViewerPanel.RenderScene;
 import bvv.core.render.RenderData;
 
+/**
+ * 3D overlay of the graph using OpenGL.
+ * 
+ * @param <V>
+ *            the type of vertex in the overlay graph.
+ * @param <E>
+ *            the type of edge in the overlay graph.
+ */
 public class OverlaySceneRenderer< V extends OverlayVertex< V, E >, E extends OverlayEdge< E, V > >
 		implements RenderScene
 {
@@ -116,5 +124,19 @@ public class OverlaySceneRenderer< V extends OverlayVertex< V, E >, E extends Ov
 			return;
 
 		renderer.updateShape( v );
+	}
+
+	public void rebuild( final int t )
+	{
+		final FrameRenderer< V > renderer = renderers.get( t );
+		if ( renderer != null )
+			renderer.rebuild();
+	}
+
+	public void rebuild()
+	{
+		// Mark everything for update.
+		for ( final Integer t : renderers.keySet() )
+			rebuild( t );
 	}
 }

@@ -47,7 +47,7 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 
 	private final DefaultShader prog;
 
-	private int vao;
+	private int vao = 0;
 
 	private int verticesVBO;
 
@@ -63,7 +63,7 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 
 	private int numInstances;
 
-	private boolean initialized;
+	private boolean doRegenAll;
 
 	private boolean doUpdateShape;
 
@@ -72,6 +72,7 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 	private boolean doRegenColor;
 
 	private final ViewMatrixUpdater viewMatrixUpdater;
+
 
 	public FrameRenderer(
 			final Supplier< SpatialIndex< V > > dataSupplier,
@@ -82,7 +83,7 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 			final RenderSettings settings )
 	{
 		this.updater = new OverlayModelUpdateGenerator< V >( dataSupplier, readLock, selection, coloring, settings );
-		this.initialized = false;
+		this.doRegenAll = true;
 
 		// Shader gen.
 		final Segment shaderVp = new SegmentTemplate( FrameRenderer.class, "vertexShader3D.glsl" ).instantiate();
@@ -94,6 +95,11 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 	/*
 	 * Update methods
 	 */
+
+	void rebuild()
+	{
+		doRegenAll = true;
+	}
 
 	void updateColors()
 	{
@@ -119,7 +125,7 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 	void render( final GL3 gl, final RenderData data )
 	{
 		// Are we initialized?
-		if ( !initialized )
+		if ( doRegenAll )
 			init( gl );
 
 		// Did the color changed?
@@ -190,6 +196,13 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 
 	private void init( final GL3 gl )
 	{
+		if ( vao != 0 )
+		{
+			// We have been initialized in the past and this call
+			// is meant to regenerate the overlay. So we need to cleanup first.
+			cleanup( gl );
+		}
+
 		// Generate update for the full model.
 		final OverlayModelUpdate update = updater.regenAll();
 
@@ -295,7 +308,7 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 		this.numInstances = update.numInstances;
 
 		// Reset flags.
-		initialized = true;
+		doRegenAll = false;
 		doRegenColor = false;
 		doUpdateShape = false;
 		doUpdatePosition = false;
