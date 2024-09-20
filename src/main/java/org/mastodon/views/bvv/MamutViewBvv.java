@@ -30,15 +30,18 @@ import org.mastodon.mamut.model.Spot;
 import org.mastodon.mamut.model.branch.BranchLink;
 import org.mastodon.mamut.model.branch.BranchSpot;
 import org.mastodon.mamut.views.MamutView;
+import org.mastodon.model.AutoNavigateFocusModel;
 import org.mastodon.model.FocusModel;
 import org.mastodon.model.HighlightModel;
 import org.mastodon.model.SelectionModel;
+import org.mastodon.ui.FocusActions;
 import org.mastodon.ui.coloring.ColorBarOverlay;
 import org.mastodon.ui.coloring.ColoringModelMain;
 import org.mastodon.ui.coloring.GraphColorGenerator;
 import org.mastodon.ui.coloring.GraphColorGeneratorAdapter;
 import org.mastodon.ui.keymap.KeyConfigContexts;
 import org.mastodon.views.bdv.SharedBigDataViewerData;
+import org.mastodon.views.bdv.overlay.OverlayNavigation;
 import org.mastodon.views.bdv.overlay.RenderSettings;
 import org.mastodon.views.bdv.overlay.RenderSettings.UpdateListener;
 import org.mastodon.views.bdv.overlay.ui.RenderSettingsManager;
@@ -176,6 +179,15 @@ public class MamutViewBvv extends MamutView< OverlayGraphWrapper< Spot, Link >, 
 		NavigationActions.install( viewActions, viewer, bdvData.is2D() );
 		viewer.getTransformEventHandler().install( viewBehaviours );
 
+		// Navigate based on view group.
+		final OverlayNavigation< OverlayVertexWrapper< Spot, Link >, OverlayEdgeWrapper< Spot, Link > > overlayNavigation = new OverlayNavigation<>( viewer, viewGraph );
+		navigationHandler.listeners().add( overlayNavigation );
+
+		// Navigate based on focus.
+		final AutoNavigateFocusModel< OverlayVertexWrapper< Spot, Link >, OverlayEdgeWrapper< Spot, Link > > navigateFocusModel =
+				new AutoNavigateFocusModel<>( focusModel, navigationHandler );
+		FocusActions.install( viewActions, viewGraph, viewGraph.getLock(), navigateFocusModel, selectionModel );
+
 		final int windowWidth = frame.getWidth();
 		final int windowHeight = frame.getHeight();
 		final AffineTransform3D resetTransform = InitializeViewerState.initTransform( windowWidth, windowHeight, false, viewer.state() );
@@ -274,6 +286,8 @@ public class MamutViewBvv extends MamutView< OverlayGraphWrapper< Spot, Link >, 
 
 		final String projectPath = "../mastodon/samples/drosophila_crop.mastodon";
 //		final String projectPath = "../mastodon/samples/MaMuT_Parhyale_small.mastodon";
+//		final String projectPath = "/Users/tinevez/Google Drive/Mastodon/Datasets/Remote/ParhyaleHawaiensis/MaMuT_Parhyale_demo-mamut.mastodon";
+//		final String projectPath = "/Users/tinevez/Google Drive/Mastodon/Datasets/Remote/Tribolium/CTC_TRIF_trainingVideo02_jy-tracked.mastodon";
 
 		System.setProperty( "apple.laf.useScreenMenuBar", "true" );
 		try (Context context = new Context())
