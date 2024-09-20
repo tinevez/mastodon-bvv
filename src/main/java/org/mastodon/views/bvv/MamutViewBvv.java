@@ -128,18 +128,33 @@ public class MamutViewBvv extends MamutView< OverlayGraphWrapper< Spot, Link >, 
 		viewer.setRenderScene( tracksOverlay );
 
 		// Listeners that will update the scene.
+
+		// Update colors when the color mode or the render settings change.
 		final Runnable colorUpdater = () -> {
 			tracksOverlay.updateColors();
 			viewer.requestRepaint( RepaintType.SCENE );
 		};
+
+		// Update position of one vertex when user moves it.
 		final RefBimap< Spot, OverlayVertexWrapper< Spot, Link > > vertexMap = viewGraph.getVertexMap();
-		final OverlayVertexWrapper< Spot, Link > oref = viewGraph.vertexRef();
 		final Consumer< Spot > positionUpdater = ( s ) -> {
+			final OverlayVertexWrapper< Spot, Link > oref = viewGraph.vertexRef();
 			final OverlayVertexWrapper< Spot, Link > v = vertexMap.getRight( s, oref );
 			tracksOverlay.updatePosition( v );
 			viewer.requestRepaint( RepaintType.FULL );
+			viewGraph.releaseRef( oref );
 		};
 
+		// Update shape of one vertex when user edit it.
+		final Consumer< Spot > shapeUpdater = ( s ) -> {
+			final OverlayVertexWrapper< Spot, Link > oref = viewGraph.vertexRef();
+			final OverlayVertexWrapper< Spot, Link > v = vertexMap.getRight( s, oref );
+			tracksOverlay.updateShape( v );
+			viewer.requestRepaint( RepaintType.FULL );
+			viewGraph.releaseRef( oref );
+		};
+
+		// Register color menus and model.
 		coloringModel = registerColoring( coloring, menuHandle, colorUpdater );
 		colorBarOverlay = new ColorBarOverlay( coloringModel, () -> viewer.getBackground() );
 		registerColorbarOverlay( colorBarOverlay, colorbarMenuHandle, () -> viewer.requestRepaint( RepaintType.SCENE ) );
@@ -153,6 +168,7 @@ public class MamutViewBvv extends MamutView< OverlayGraphWrapper< Spot, Link >, 
 		final Model model = appModel.getModel();
 		final ModelGraph modelGraph = model.getGraph();
 		modelGraph.addVertexPositionListener( spot -> positionUpdater.accept( spot ) );
+		modelGraph.addVertexCovarianceListener( spot -> shapeUpdater.accept( spot ) );
 		selectionModel.listeners().add( () -> colorUpdater.run() );
 
 		NavigationActions.install( viewActions, viewer, bdvData.is2D() );

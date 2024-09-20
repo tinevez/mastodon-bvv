@@ -85,6 +85,8 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 
 	private final PositionUpdate positionUpdate;
 
+	private final ShapeUpdate< V > shapeUpdate;
+
 	public FrameRenderer(
 			final HighlightModel< V, ? > highlight,
 			final SelectionModel< V, ? > selection,
@@ -103,6 +105,7 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 
 		this.initialized = false;
 		this.positionUpdate = new PositionUpdate();
+		this.shapeUpdate = new ShapeUpdate<>();
 	}
 
 	/**
@@ -207,6 +210,13 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 		positionUpdate.set( index, v );
 	}
 
+	void updateShape( final V v )
+	{
+		final int id = v.getInternalPoolIndex();
+		final int index = idMap.get( id );
+		shapeUpdate.set( index, v );
+	}
+
 	/*
 	 * OpenGL methods.
 	 */
@@ -234,6 +244,10 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 		// Did the position of a vertex changed?
 		if ( positionUpdate.todo )
 			transferPositionUdate( gl );
+
+		// Did the shape of a vertex changed?
+		if ( shapeUpdate.todo )
+			transferShapeUpdate( gl );
 
 		// Get current view matrices.
 		pvm.set( data.getPv() );
@@ -275,6 +289,17 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 				3 * Float.BYTES,
 				positionUpdate.buffer );
 		positionUpdate.todo = false;
+	}
+
+	private void transferShapeUpdate( final GL3 gl )
+	{
+		gl.glBindBuffer( GL_ARRAY_BUFFER, shapeVBO );
+		gl.glBufferSubData(
+				GL_ARRAY_BUFFER,
+				9 * shapeUpdate.index * Float.BYTES,
+				9 * Float.BYTES,
+				shapeUpdate.buffer );
+		shapeUpdate.todo = false;
 	}
 
 	private void transferColorBuffer( final GL3 gl )
@@ -515,6 +540,30 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 					.put( pos.getFloatPosition( 0 ) )
 					.put( pos.getFloatPosition( 1 ) )
 					.put( pos.getFloatPosition( 2 ) );
+			buffer.rewind();
+		}
+	}
+
+	private static class ShapeUpdate< V extends OverlayVertex< V, ? > >
+	{
+
+		private boolean todo = false;
+
+		private int index;
+
+		private final ModelDataCreator< V > creator = new ModelDataCreator<>();
+
+		private final FloatBuffer buffer = GLBuffers.newDirectFloatBuffer( 9 );
+
+		private final Matrix3f matrix = new Matrix3f();
+
+		public void set( final int index, final V v )
+		{
+			this.todo = true;
+			this.index = index;
+			creator.inputShapeMatrix( v, matrix );
+			buffer.clear();
+			matrix.get( buffer );
 			buffer.rewind();
 		}
 	}
