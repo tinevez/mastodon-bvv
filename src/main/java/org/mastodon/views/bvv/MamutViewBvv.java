@@ -48,6 +48,7 @@ import org.mastodon.views.bdv.overlay.ui.RenderSettingsManager;
 import org.mastodon.views.bdv.overlay.wrap.OverlayEdgeWrapper;
 import org.mastodon.views.bdv.overlay.wrap.OverlayGraphWrapper;
 import org.mastodon.views.bdv.overlay.wrap.OverlayVertexWrapper;
+import org.mastodon.views.bvv.export.RecordMovieDialog;
 import org.mastodon.views.bvv.scene.OverlaySceneRenderer;
 import org.scijava.Context;
 import org.scijava.thread.ThreadService;
@@ -198,6 +199,10 @@ public class MamutViewBvv extends MamutView< OverlayGraphWrapper< Spot, Link >, 
 			viewer.state().setViewerTransform( resetTransform );
 			viewer.showMessage( "reset view" );
 		}, "reset transform", "R" );
+
+		final Runnable onCloseDialog = RecordMovieDialog.install( viewActions, bvv.getViewerFrame(),
+				colorBarOverlay, appModel.getKeymap() );
+		onClose( onCloseDialog );
 
 		onClose( () -> viewer.stop() );
 		onClose( () -> tracksOverlay.stop() );
