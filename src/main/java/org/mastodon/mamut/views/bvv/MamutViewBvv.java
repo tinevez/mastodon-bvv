@@ -177,6 +177,7 @@ public class MamutViewBvv extends MamutView< OverlayGraphWrapper< Spot, Link >, 
 		coloringModel = registerColoring( coloring, menuHandle, colorUpdater );
 		colorBarOverlay = new ColorBarOverlay( coloringModel, () -> viewer.getBackground() );
 		registerColorbarOverlay( colorBarOverlay, colorbarMenuHandle, () -> viewer.requestRepaint( RepaintType.SCENE ) );
+		viewer.getDisplay().overlays().add( colorBarOverlay );
 
 		// Notifies when the render settings change.
 		final UpdateListener updateListener = () -> colorUpdater.run();
