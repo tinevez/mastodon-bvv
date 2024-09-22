@@ -31,7 +31,8 @@ import bvv.core.VolumeViewerPanel;
 import dev.dirs.ProjectDirectories;
 
 /**
- * Copied from {@link BigVolumeViewer}.
+ * Copied from {@link BigVolumeViewer}. Adapted so that the frame returned can
+ * be inserted into Mastodon frame hierarchy.
  */
 public class BigVolumeViewerMamut
 {
