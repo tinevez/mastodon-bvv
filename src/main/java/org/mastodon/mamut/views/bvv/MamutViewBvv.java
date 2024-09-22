@@ -1,4 +1,4 @@
-package org.mastodon.views.bvv;
+package org.mastodon.mamut.views.bvv;
 
 import static org.mastodon.app.MastodonIcons.BVV_VIEW_ICON;
 import static org.mastodon.app.ui.ViewMenuBuilder.item;
@@ -13,7 +13,6 @@ import static org.mastodon.mamut.MamutMenuBuilder.viewMenu;
 import java.util.function.Consumer;
 
 import javax.swing.ActionMap;
-import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.WindowConstants;
 
@@ -48,6 +47,8 @@ import org.mastodon.ui.coloring.ColorBarOverlay;
 import org.mastodon.ui.coloring.ColoringModelMain;
 import org.mastodon.ui.coloring.GraphColorGenerator;
 import org.mastodon.ui.coloring.GraphColorGeneratorAdapter;
+import org.mastodon.ui.coloring.HasColorBarOverlay;
+import org.mastodon.ui.coloring.HasColoringModel;
 import org.mastodon.ui.keymap.KeyConfigContexts;
 import org.mastodon.views.bdv.SharedBigDataViewerData;
 import org.mastodon.views.bdv.overlay.OverlayNavigation;
@@ -57,6 +58,9 @@ import org.mastodon.views.bdv.overlay.ui.RenderSettingsManager;
 import org.mastodon.views.bdv.overlay.wrap.OverlayEdgeWrapper;
 import org.mastodon.views.bdv.overlay.wrap.OverlayGraphWrapper;
 import org.mastodon.views.bdv.overlay.wrap.OverlayVertexWrapper;
+import org.mastodon.views.bvv.BigVolumeViewerActionsMamut;
+import org.mastodon.views.bvv.BigVolumeViewerMamut;
+import org.mastodon.views.bvv.VolumeViewerFrameMamut;
 import org.mastodon.views.bvv.export.RecordMovieDialog;
 import org.mastodon.views.bvv.scene.OverlaySceneRenderer;
 import org.scijava.Context;
@@ -72,6 +76,7 @@ import bvv.core.render.VolumeRenderer.RepaintType;
 import net.imglib2.realtransform.AffineTransform3D;
 
 public class MamutViewBvv extends MamutView< OverlayGraphWrapper< Spot, Link >, OverlayVertexWrapper< Spot, Link >, OverlayEdgeWrapper< Spot, Link > >
+		implements HasColoringModel, HasColorBarOverlay
 {
 
 	private static int bvvName = 1;
@@ -80,12 +85,11 @@ public class MamutViewBvv extends MamutView< OverlayGraphWrapper< Spot, Link >, 
 
 	private final ColorBarOverlay colorBarOverlay;
 
-	public MamutViewBvv(
-			final ProjectModel projectModel,
-			final OverlayGraphWrapper< Spot, Link > viewGraph,
-			final String[] keyConfigContexts )
+	public MamutViewBvv( final ProjectModel projectModel )
 	{
-		super( projectModel, createViewGraph( projectModel ), keyConfigContexts );
+		super( projectModel,
+				createViewGraph( projectModel ),
+				new String[] { KeyConfigContexts.BIGDATAVIEWER } );
 		final SharedBigDataViewerData bdvData = projectModel.getSharedBdvData();
 
 		final String windowTitle = "BigVolumeViewer " + ( bvvName++ );
@@ -265,6 +269,11 @@ public class MamutViewBvv extends MamutView< OverlayGraphWrapper< Spot, Link >, 
 		registerTagSetMenu( tagSetMenuHandle, colorUpdater );
 	}
 
+	public VolumeViewerPanel getViewerPanelMamut()
+	{
+		return ( ( VolumeViewerFrameMamut ) frame ).getViewerPanel();
+	}
+
 	private static OverlayGraphWrapper< Spot, Link > createViewGraph( final ProjectModel appModel )
 	{
 		return new OverlayGraphWrapper<>(
@@ -341,9 +350,20 @@ public class MamutViewBvv extends MamutView< OverlayGraphWrapper< Spot, Link >, 
 
 	}
 
+	@Override
+	public ColoringModelMain< Spot, Link, BranchSpot, BranchLink > getColoringModel()
+	{
+		return coloringModel;
+	}
+
+	@Override
+	public ColorBarOverlay getColorBarOverlay()
+	{
+		return colorBarOverlay;
+	}
+
 	public static void main( final String[] args )
 	{
-
 		final String projectPath = "../mastodon/samples/drosophila_crop.mastodon";
 //		final String projectPath = "../mastodon/samples/MaMuT_Parhyale_small.mastodon";
 //		final String projectPath = "/Users/tinevez/Google Drive/Mastodon/Datasets/Remote/ParhyaleHawaiensis/MaMuT_Parhyale_demo-mamut.mastodon";
@@ -356,16 +376,10 @@ public class MamutViewBvv extends MamutView< OverlayGraphWrapper< Spot, Link >, 
 			threadService.run( () -> {
 				try
 				{
-					final ProjectModel projectModel = ProjectLoader.open( projectPath, context, false, false );
+					final ProjectModel projectModel = ProjectLoader.open( projectPath, context, true, false );
 					final MainWindow win = new MainWindow( projectModel );
 					win.setVisible( true );
 					win.setDefaultCloseOperation( WindowConstants.EXIT_ON_CLOSE );
-					final MamutViewBvv viewBvv = new MamutViewBvv(
-							projectModel,
-							createViewGraph( projectModel ),
-							new String[] { KeyConfigContexts.BIGDATAVIEWER } );
-					viewBvv.getFrame().setVisible( true );
-					viewBvv.getFrame().setDefaultCloseOperation( JFrame.EXIT_ON_CLOSE );
 				}
 				catch ( final Exception e )
 				{
