@@ -84,10 +84,10 @@ import org.scijava.ui.behaviour.util.Actions;
 import org.scijava.ui.behaviour.util.InputActionBindings;
 
 import bdv.export.ProgressWriter;
+import bdv.tools.DelayedPackDialog;
 import bdv.tools.ToggleDialogAction;
 import bdv.ui.keymap.Keymap;
 import bdv.ui.keymap.Keymap.UpdateListener;
-import bdv.util.DelayedPackDialog;
 import bdv.util.Prefs;
 import bdv.viewer.AbstractViewerPanel;
 import bdv.viewer.OverlayRenderer;
