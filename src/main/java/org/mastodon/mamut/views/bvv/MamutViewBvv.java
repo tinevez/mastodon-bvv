@@ -14,7 +14,6 @@ import java.util.function.Consumer;
 
 import javax.swing.ActionMap;
 import javax.swing.JPanel;
-import javax.swing.WindowConstants;
 
 import org.mastodon.adapter.RefBimap;
 import org.mastodon.app.ui.MastodonFrameViewActions;
@@ -26,7 +25,6 @@ import org.mastodon.mamut.MainWindow;
 import org.mastodon.mamut.MamutMenuBuilder;
 import org.mastodon.mamut.ProjectModel;
 import org.mastodon.mamut.UndoActions;
-import org.mastodon.mamut.io.ProjectLoader;
 import org.mastodon.mamut.model.Link;
 import org.mastodon.mamut.model.Model;
 import org.mastodon.mamut.model.ModelGraph;
@@ -63,8 +61,6 @@ import org.mastodon.views.bvv.BigVolumeViewerMamut;
 import org.mastodon.views.bvv.VolumeViewerFrameMamut;
 import org.mastodon.views.bvv.export.RecordMovieDialog;
 import org.mastodon.views.bvv.scene.OverlaySceneRenderer;
-import org.scijava.Context;
-import org.scijava.thread.ThreadService;
 import org.scijava.ui.behaviour.io.InputTriggerConfig;
 import org.scijava.ui.behaviour.util.Actions;
 
@@ -361,32 +357,5 @@ public class MamutViewBvv extends MamutView< OverlayGraphWrapper< Spot, Link >, 
 	public ColorBarOverlay getColorBarOverlay()
 	{
 		return colorBarOverlay;
-	}
-
-	public static void main( final String[] args )
-	{
-		final String projectPath = "../mastodon/samples/drosophila_crop.mastodon";
-//		final String projectPath = "../mastodon/samples/MaMuT_Parhyale_small.mastodon";
-//		final String projectPath = "/Users/tinevez/Google Drive/Mastodon/Datasets/Remote/ParhyaleHawaiensis/MaMuT_Parhyale_demo-mamut.mastodon";
-//		final String projectPath = "/Users/tinevez/Google Drive/Mastodon/Datasets/Remote/Tribolium/CTC_TRIF_trainingVideo02_jy-tracked.mastodon";
-
-		System.setProperty( "apple.laf.useScreenMenuBar", "true" );
-		try (Context context = new Context())
-		{
-			final ThreadService threadService = context.getService( ThreadService.class );
-			threadService.run( () -> {
-				try
-				{
-					final ProjectModel projectModel = ProjectLoader.open( projectPath, context, true, false );
-					final MainWindow win = new MainWindow( projectModel );
-					win.setVisible( true );
-					win.setDefaultCloseOperation( WindowConstants.EXIT_ON_CLOSE );
-				}
-				catch ( final Exception e )
-				{
-					e.printStackTrace();
-				}
-			} );
-		}
 	}
 }
