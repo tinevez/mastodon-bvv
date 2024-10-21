@@ -1,0 +1,203 @@
+/*-
+ * #%L
+ * Mastodon
+ * %%
+ * Copyright (C) 2014 - 2024 Tobias Pietzsch, Jean-Yves Tinevez
+ * %%
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 
+ * 1. Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ * #L%
+ */
+package org.mastodon.views.bvv.scene.ui;
+
+import static org.mastodon.app.ui.StyleElements.booleanElement;
+import static org.mastodon.app.ui.StyleElements.colorElement;
+import static org.mastodon.app.ui.StyleElements.doubleElement;
+import static org.mastodon.app.ui.StyleElements.enumElement;
+import static org.mastodon.app.ui.StyleElements.linkedCheckBox;
+import static org.mastodon.app.ui.StyleElements.linkedColorButton;
+import static org.mastodon.app.ui.StyleElements.linkedComboBoxEnumSelector;
+import static org.mastodon.app.ui.StyleElements.linkedSliderPanel;
+import static org.mastodon.app.ui.StyleElements.separator;
+
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.Insets;
+import java.util.Arrays;
+import java.util.List;
+
+import javax.swing.Box;
+import javax.swing.JButton;
+import javax.swing.JCheckBox;
+import javax.swing.JColorChooser;
+import javax.swing.JComboBox;
+import javax.swing.JComponent;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.SwingConstants;
+
+import org.mastodon.app.ui.StyleElements.BooleanElement;
+import org.mastodon.app.ui.StyleElements.ColorElement;
+import org.mastodon.app.ui.StyleElements.DoubleElement;
+import org.mastodon.app.ui.StyleElements.EnumElement;
+import org.mastodon.app.ui.StyleElements.IntElement;
+import org.mastodon.app.ui.StyleElements.Separator;
+import org.mastodon.app.ui.StyleElements.StyleElement;
+import org.mastodon.app.ui.StyleElements.StyleElementVisitor;
+import org.mastodon.views.bvv.scene.BvvRenderSettings;
+
+import bdv.tools.brightness.SliderPanel;
+import bdv.tools.brightness.SliderPanelDouble;
+
+public class BvvRenderSettingsPanel extends JPanel
+{
+	private static final long serialVersionUID = 1L;
+
+	private static final int tfCols = 4;
+
+	private static final Dimension SLIDER_PREFERRED_DIM = new Dimension( 50, 30 );
+
+	private final JColorChooser colorChooser;
+
+	private final List< StyleElement > styleElements;
+
+	public BvvRenderSettingsPanel( final BvvRenderSettings style )
+	{
+		super( new GridBagLayout() );
+		colorChooser = new JColorChooser();
+		styleElements = styleElements( style );
+
+		style.updateListeners().add( () -> {
+			styleElements.forEach( StyleElement::update );
+			repaint();
+		} );
+
+		final GridBagConstraints c = new GridBagConstraints();
+		c.insets = new Insets( 0, 5, 0, 5 );
+		c.fill = GridBagConstraints.HORIZONTAL;
+		c.weightx = 1.0;
+		c.gridwidth = 1;
+		c.gridx = 0;
+		c.gridy = 0;
+
+		styleElements.forEach( element -> element.accept(
+				new StyleElementVisitor()
+				{
+					@Override
+					public void visit( final Separator element )
+					{
+						add( Box.createVerticalStrut( 10 ), c );
+						++c.gridy;
+					}
+
+					@Override
+					public void visit( final BooleanElement element )
+					{
+						final JCheckBox checkbox = linkedCheckBox( element, "" );
+						checkbox.setHorizontalAlignment( SwingConstants.TRAILING );
+						addToLayout(
+								checkbox,
+								new JLabel( element.getLabel() ) );
+					}
+
+					@Override
+					public void visit( final DoubleElement element )
+					{
+						final SliderPanelDouble slider = linkedSliderPanel( element, tfCols );
+						slider.setPreferredSize( SLIDER_PREFERRED_DIM );
+						addToLayout(
+								new JLabel( element.getLabel(), JLabel.RIGHT ),
+								slider );
+					}
+
+					@Override
+					public void visit( final IntElement element )
+					{
+						final SliderPanel slider = linkedSliderPanel( element, tfCols );
+						slider.setPreferredSize( SLIDER_PREFERRED_DIM );
+						addToLayout(
+								new JLabel( element.getLabel(), JLabel.RIGHT ),
+								slider );
+					}
+
+					@Override
+					public void visit( final ColorElement element )
+					{
+						final JButton button = linkedColorButton( element, null, colorChooser );
+						button.setHorizontalAlignment( SwingConstants.RIGHT );
+						addToLayout(
+								button,
+								new JLabel( element.getLabel() ) );
+					}
+
+					@Override
+					public < E > void visit( final EnumElement< E > element )
+					{
+						final JComboBox< E > cb = linkedComboBoxEnumSelector( element );
+						addToLayout(
+								new JLabel( element.getLabel(), JLabel.RIGHT ),
+								cb );
+					}
+
+					private void addToLayout( final JComponent comp1, final JComponent comp2 )
+					{
+						c.anchor = GridBagConstraints.LINE_END;
+						add( comp1, c );
+						c.gridx++;
+						c.weightx = 1.0;
+						c.anchor = GridBagConstraints.LINE_START;
+						add( comp2, c );
+						c.gridx = 0;
+						c.weightx = 1.0;
+						c.gridy++;
+					}
+				} ) );
+	}
+
+	private List< StyleElement > styleElements( final BvvRenderSettings style )
+	{
+		return Arrays.asList(
+
+				booleanElement( "draw spots", style::getDrawSpots, style::setDrawSpots ),
+				booleanElement( "draw spots surface", style::getDrawSpotsAsSurfaces,
+						style::setDrawSpotsAsSurfaces ),
+				booleanElement( "anti-aliasing", style::getUseAntialiasing, style::setUseAntialiasing ),
+				doubleElement( "opacity", 0, 1, style::getTransparencyAlpha, style::setTransparencyAlpha ),
+
+				separator(),
+
+				colorElement(
+						"spot color",
+						() -> new Color( style.getColorSpot(), true ),
+						( c ) -> style.setColorSpot( c.getRGB() ) ),
+				colorElement(
+						"selection color",
+						() -> new Color( style.getSelectionColor(), true ),
+						( c ) -> style.setSelectionColor( c.getRGB() ) ),
+
+				separator(),
+
+				enumElement( "style", BvvRenderSettings.ShaderStyle.values(), style::getShaderStyle, style::setShaderStyle )
+		);
+	}
+}

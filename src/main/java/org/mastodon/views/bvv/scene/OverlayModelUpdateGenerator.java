@@ -12,7 +12,6 @@ import org.mastodon.model.SelectionModel;
 import org.mastodon.spatial.SpatialIndex;
 import org.mastodon.ui.coloring.GraphColorGenerator;
 import org.mastodon.views.bdv.overlay.OverlayVertex;
-import org.mastodon.views.bdv.overlay.RenderSettings;
 import org.mastodon.views.bdv.overlay.util.JamaEigenvalueDecomposition;
 
 import com.jogamp.opengl.util.GLBuffers;
@@ -32,7 +31,7 @@ public class OverlayModelUpdateGenerator< V extends OverlayVertex< V, ? > >
 
 	private final ModelDataCreator< V > creator = new ModelDataCreator<>();
 
-	private final RenderSettings settings;
+	private final BvvRenderSettings settings;
 
 	private final SelectionModel< V, ? > selection;
 
@@ -51,7 +50,7 @@ public class OverlayModelUpdateGenerator< V extends OverlayVertex< V, ? > >
 			final Lock readLock,
 			final SelectionModel< V, ? > selection,
 			final GraphColorGenerator< V, ? > coloring,
-			final RenderSettings settings )
+			final BvvRenderSettings settings )
 	{
 		this.dataSupplier = dataSupplier;
 		this.readLock = readLock;
@@ -76,6 +75,7 @@ public class OverlayModelUpdateGenerator< V extends OverlayVertex< V, ? > >
 		final FloatBuffer colorBuffer = GLBuffers.newDirectFloatBuffer( 3 * size );
 
 		final int defColor = settings.getColorSpot();
+		final int selectionColor = settings.getSelectionColor();
 		final Vector3f colorVector = new Vector3f();
 		final Iterator< V > it = si.iterator();
 		for ( int i = 0; i < size; i++ )
@@ -84,7 +84,7 @@ public class OverlayModelUpdateGenerator< V extends OverlayVertex< V, ? > >
 			final int id = v.getInternalPoolIndex();
 			final int index = idMap.get( id );
 
-			getVertexColor( v, defColor, colorVector );
+			getVertexColor( v, defColor, selectionColor, colorVector );
 			colorVector.get( index * 3, colorBuffer );
 		}
 		return colorBuffer;
@@ -112,6 +112,7 @@ public class OverlayModelUpdateGenerator< V extends OverlayVertex< V, ? > >
 		final SpatialIndex< V > si = dataSupplier.get();
 		final int instanceCount = si.size();
 		final int defColor = settings.getColorSpot();
+		final int selectionColor = settings.getSelectionColor();
 
 		// Model matrix buffer (4x4)
 		final FloatBuffer shapeBuffer = GLBuffers.newDirectFloatBuffer( 9 * instanceCount );
@@ -151,7 +152,7 @@ public class OverlayModelUpdateGenerator< V extends OverlayVertex< V, ? > >
 				pos.get( i * 3, translationBuffer );
 
 				// Instance color.
-				getVertexColor( v, defColor, colorVector );
+				getVertexColor( v, defColor, selectionColor, colorVector );
 				colorVector.get( i * 3, colorBuffer );
 			}
 		}
@@ -233,11 +234,11 @@ public class OverlayModelUpdateGenerator< V extends OverlayVertex< V, ? > >
 	 * Color utilities.
 	 */
 
-	private void getVertexColor( final V v, final int defColor, final Vector3f colorVector )
+	private void getVertexColor( final V v, final int defColor, final int selectionColor, final Vector3f colorVector )
 	{
 		final boolean isSelected = selection.isSelected( v );
 		final int color = coloring.color( v );
-		final Color c = getColor( isSelected, defColor, color );
+		final Color c = getColor( isSelected, defColor, selectionColor, color );
 		colorVector.x = c.getRed() / 255f;
 		colorVector.y = c.getGreen() / 255f;
 		colorVector.z = c.getBlue() / 255f;
@@ -246,6 +247,7 @@ public class OverlayModelUpdateGenerator< V extends OverlayVertex< V, ? > >
 	private static Color getColor(
 			final boolean isSelected,
 			final int defColor,
+			final int selectionColor,
 			final int color )
 	{
 		final int r0, g0, b0;
@@ -254,10 +256,9 @@ public class OverlayModelUpdateGenerator< V extends OverlayVertex< V, ? > >
 			// No coloring. Color are set by the RenderSettings.
 			if ( isSelected )
 			{
-				final int compColor = complementaryColor( defColor );
-				r0 = ( compColor >> 16 ) & 0xff;
-				g0 = ( compColor >> 8 ) & 0xff;
-				b0 = ( compColor ) & 0xff;
+				r0 = ( selectionColor >> 16 ) & 0xff;
+				g0 = ( selectionColor >> 8 ) & 0xff;
+				b0 = ( selectionColor ) & 0xff;
 			}
 			else
 			{
@@ -278,11 +279,6 @@ public class OverlayModelUpdateGenerator< V extends OverlayVertex< V, ? > >
 		final double b = b0 / 255.;
 		final double a = 1.;
 		return new Color( truncRGBA( r, g, b, a ), true );
-	}
-
-	private static final int complementaryColor( final int color )
-	{
-		return 0xff000000 | ~color;
 	}
 
 	private static int trunc255( final int i )

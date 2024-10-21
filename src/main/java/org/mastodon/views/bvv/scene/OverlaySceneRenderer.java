@@ -13,7 +13,6 @@ import org.mastodon.ui.coloring.GraphColorGenerator;
 import org.mastodon.views.bdv.overlay.OverlayEdge;
 import org.mastodon.views.bdv.overlay.OverlayGraph;
 import org.mastodon.views.bdv.overlay.OverlayVertex;
-import org.mastodon.views.bdv.overlay.RenderSettings;
 import org.mastodon.views.bdv.overlay.Visibilities;
 import org.mastodon.views.bdv.overlay.Visibilities.VisibilityMode;
 
@@ -42,7 +41,7 @@ public class OverlaySceneRenderer< V extends OverlayVertex< V, E >, E extends Ov
 
 	private final GraphColorGenerator< V, E > coloring;
 
-	private final RenderSettings settings;
+	private BvvRenderSettings settings;
 
 	private final Visibilities< V, E > visibilities;
 
@@ -53,7 +52,7 @@ public class OverlaySceneRenderer< V extends OverlayVertex< V, E >, E extends Ov
 			final FocusModel< V > focus,
 			final SelectionModel< V, E > selection,
 			final GraphColorGenerator< V, E > coloring,
-			final RenderSettings renderSettings )
+			final BvvRenderSettings renderSettings )
 	{
 		this.graph = graph;
 		this.highlight = highlight;
@@ -150,5 +149,11 @@ public class OverlaySceneRenderer< V extends OverlayVertex< V, E >, E extends Ov
 
 			renderer.stop();
 		}
+	}
+
+	public void setRenderSettings( final BvvRenderSettings settings )
+	{
+		this.settings = settings;
+		renderers.clear();
 	}
 }

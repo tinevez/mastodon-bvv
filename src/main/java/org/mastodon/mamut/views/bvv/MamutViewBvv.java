@@ -50,9 +50,6 @@ import org.mastodon.ui.coloring.HasColoringModel;
 import org.mastodon.ui.keymap.KeyConfigContexts;
 import org.mastodon.views.bdv.SharedBigDataViewerData;
 import org.mastodon.views.bdv.overlay.OverlayNavigation;
-import org.mastodon.views.bdv.overlay.RenderSettings;
-import org.mastodon.views.bdv.overlay.RenderSettings.UpdateListener;
-import org.mastodon.views.bdv.overlay.ui.RenderSettingsManager;
 import org.mastodon.views.bdv.overlay.wrap.OverlayEdgeWrapper;
 import org.mastodon.views.bdv.overlay.wrap.OverlayGraphWrapper;
 import org.mastodon.views.bdv.overlay.wrap.OverlayVertexWrapper;
@@ -60,7 +57,10 @@ import org.mastodon.views.bvv.BigVolumeViewerActionsMamut;
 import org.mastodon.views.bvv.BigVolumeViewerMamut;
 import org.mastodon.views.bvv.VolumeViewerFrameMamut;
 import org.mastodon.views.bvv.export.RecordMovieDialog;
+import org.mastodon.views.bvv.scene.BvvRenderSettings;
+import org.mastodon.views.bvv.scene.BvvRenderSettings.UpdateListener;
 import org.mastodon.views.bvv.scene.OverlaySceneRenderer;
+import org.mastodon.views.bvv.scene.ui.BvvRenderSettingsManager;
 import org.scijava.ui.behaviour.io.InputTriggerConfig;
 import org.scijava.ui.behaviour.util.Actions;
 
@@ -129,8 +129,8 @@ public class MamutViewBvv extends MamutView< OverlayGraphWrapper< Spot, Link >, 
 		final VolumeViewerPanel viewer = bvv.getViewer();
 
 		// This view's render settings
-		final RenderSettingsManager renderSettingsManager = appModel.getWindowManager().getManager( RenderSettingsManager.class );
-		final RenderSettings renderSettings = renderSettingsManager.getForwardDefaultStyle();
+		final BvvRenderSettingsManager renderSettingsManager = appModel.getWindowManager().getManager( BvvRenderSettingsManager.class );
+		final BvvRenderSettings renderSettings = renderSettingsManager.getForwardDefaultStyle();
 
 		// The spot & link overlay.
 		final OverlaySceneRenderer< OverlayVertexWrapper< Spot, Link >, OverlayEdgeWrapper< Spot, Link > > tracksOverlay = createRenderer(
@@ -143,6 +143,10 @@ public class MamutViewBvv extends MamutView< OverlayGraphWrapper< Spot, Link >, 
 		viewer.setRenderScene( tracksOverlay );
 
 		// Listeners that will update the scene.
+		tracksOverlay.setRenderSettings( renderSettings );
+		final UpdateListener updateListener = () -> viewer.repaint();
+		renderSettings.updateListeners().add( updateListener );
+		onClose( () -> renderSettings.updateListeners().remove( updateListener ) );
 
 		// Update colors when the color mode or the render settings change.
 		final Runnable colorUpdater = () -> {
@@ -174,11 +178,6 @@ public class MamutViewBvv extends MamutView< OverlayGraphWrapper< Spot, Link >, 
 		colorBarOverlay = new ColorBarOverlay( coloringModel, () -> viewer.getBackground() );
 		registerColorbarOverlay( colorBarOverlay, colorbarMenuHandle, () -> viewer.requestRepaint( RepaintType.SCENE ) );
 		viewer.getDisplay().overlays().add( colorBarOverlay );
-
-		// Notifies when the render settings change.
-		final UpdateListener updateListener = () -> colorUpdater.run();
-		renderSettings.updateListeners().add( updateListener );
-		onClose( () -> renderSettings.updateListeners().remove( updateListener ) );
 
 		// Notify if models update.
 		final Model model = appModel.getModel();
@@ -288,7 +287,7 @@ public class MamutViewBvv extends MamutView< OverlayGraphWrapper< Spot, Link >, 
 					final FocusModel< OverlayVertexWrapper< Spot, Link > > focusModel,
 					final SelectionModel< OverlayVertexWrapper< Spot, Link >, OverlayEdgeWrapper< Spot, Link > > selectionModel,
 					final GraphColorGenerator< OverlayVertexWrapper< Spot, Link >, OverlayEdgeWrapper< Spot, Link > > coloring,
-					final RenderSettings renderSettings )
+					final BvvRenderSettings renderSettings )
 	{
 		return new OverlaySceneRenderer< OverlayVertexWrapper< Spot, Link >, OverlayEdgeWrapper< Spot, Link > >(
 				viewGraph,

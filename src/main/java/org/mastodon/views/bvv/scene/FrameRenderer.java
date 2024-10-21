@@ -4,6 +4,7 @@ import static com.jogamp.opengl.GL.GL_ARRAY_BUFFER;
 import static com.jogamp.opengl.GL.GL_DYNAMIC_DRAW;
 import static com.jogamp.opengl.GL.GL_ELEMENT_ARRAY_BUFFER;
 import static com.jogamp.opengl.GL.GL_FLOAT;
+import static com.jogamp.opengl.GL.GL_POINTS;
 import static com.jogamp.opengl.GL.GL_TRIANGLES;
 import static com.jogamp.opengl.GL.GL_UNSIGNED_INT;
 
@@ -19,7 +20,6 @@ import org.mastodon.model.SelectionModel;
 import org.mastodon.spatial.SpatialIndex;
 import org.mastodon.ui.coloring.GraphColorGenerator;
 import org.mastodon.views.bdv.overlay.OverlayVertex;
-import org.mastodon.views.bdv.overlay.RenderSettings;
 import org.mastodon.views.bvv.scene.OverlayModelUpdateGenerator.OverlayModelUpdate;
 import org.mastodon.views.bvv.scene.OverlayModelUpdateGenerator.PositionUpdate;
 import org.mastodon.views.bvv.scene.OverlayModelUpdateGenerator.ShapeUpdate;
@@ -31,7 +31,6 @@ import bvv.core.backend.jogl.JoglGpuContext;
 import bvv.core.render.RenderData;
 import bvv.core.shadergen.DefaultShader;
 import bvv.core.shadergen.generate.Segment;
-import bvv.core.shadergen.generate.SegmentTemplate;
 import bvv.core.util.MatrixMath;
 import net.imglib2.RealPoint;
 import net.imglib2.mesh.Mesh;
@@ -75,6 +74,7 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 
 	private boolean doCloseRenderer = false;
 
+	private final BvvRenderSettings settings;
 
 	public FrameRenderer(
 			final Supplier< SpatialIndex< V > > dataSupplier,
@@ -82,14 +82,15 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 			final HighlightModel< V, ? > highlight,
 			final SelectionModel< V, ? > selection,
 			final GraphColorGenerator< V, ? > coloring,
-			final RenderSettings settings )
+			final BvvRenderSettings settings )
 	{
+		this.settings = settings;
 		this.updater = new OverlayModelUpdateGenerator< V >( dataSupplier, readLock, selection, coloring, settings );
 		this.doRegenAll = true;
 
 		// Shader gen.
-		final Segment shaderVp = new SegmentTemplate( FrameRenderer.class, "vertexShader3D.glsl" ).instantiate();
-		final Segment shaderFp = new SegmentTemplate( FrameRenderer.class, "fragmentShader3D.glsl" ).instantiate();
+		final Segment shaderVp = settings.getShaderStyle().getVertexShaderSegment();
+		final Segment shaderFp = settings.getShaderStyle().getFragmentShaderSegment();
 		prog = new DefaultShader( shaderVp.getCode(), shaderFp.getCode() );
 		viewMatrixUpdater = new ViewMatrixUpdater();
 	}
@@ -132,7 +133,7 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 	void render( final GL3 gl, final RenderData data )
 	{
 		// Is the display closing and should we close everything?
-		if ( doCloseRenderer  )
+		if ( doCloseRenderer )
 		{
 			cleanup( gl );
 			return;
@@ -161,12 +162,20 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 		gl.glBindVertexArray( vao );
 
 		// Draw the actual meshes.
-		gl.glDrawElementsInstanced(
-				GL_TRIANGLES,
-				vertexCount,
-				GL_UNSIGNED_INT,
-				0,
-				numInstances );
+		if ( settings.getDrawSpotsAsSurfaces() )
+			gl.glDrawElementsInstanced(
+					GL_TRIANGLES,
+					vertexCount,
+					GL_UNSIGNED_INT,
+					0,
+					numInstances );
+		else
+			gl.glDrawElementsInstanced(
+					GL_POINTS,
+					vertexCount,
+					GL_UNSIGNED_INT,
+					0,
+					numInstances );
 
 		// Unbind
 		gl.glBindVertexArray( 0 );
