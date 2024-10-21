@@ -158,8 +158,15 @@ public class FrameRenderer< V extends OverlayVertex< V, ? > >
 		// Get current view matrices and pass them to the shaders.
 		viewMatrixUpdater.update( gl, data, prog );
 
+		// Pass uniforms to shader
+		prog.getUniform1f( "alpha" ).set( ( float ) settings.getTransparencyAlpha() );
+
 		// Bind
 		gl.glBindVertexArray( vao );
+
+		gl.glEnable( GL.GL_CULL_FACE );
+		gl.glCullFace( GL.GL_BACK );
+		gl.glFrontFace( GL.GL_CCW );
 
 		// Draw the actual meshes.
 		if ( settings.getDrawSpotsAsSurfaces() )

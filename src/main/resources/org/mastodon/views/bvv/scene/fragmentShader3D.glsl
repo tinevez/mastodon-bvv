@@ -4,6 +4,8 @@ in vec3 fragNormal;
 
 out vec4 outColor;
 
+uniform float alpha;
+
 const vec3 lightColor1 = 0.5 * vec3(0.9, 0.9, 1);
 const vec3 lightDir1 = normalize(vec3(0, -0.2, -1));
 const vec3 lightColor2 = 0.5 * vec3(0.1, 0.1, 1);
@@ -46,5 +48,5 @@ void main()
     // Mix between the border color and the ellipsoid color.
     vec3 finalColor = mix( borderColor, mixedColor.rgb, edgeFactor );
     
-    outColor = vec4(finalColor, 1.0);
+    outColor = vec4(finalColor, alpha);
 }

@@ -7,6 +7,8 @@ uniform mat4 pvm;
 uniform mat4 vm;
 uniform mat3 itvm;
 
+uniform float alpha;
+
 out vec3 fragPos;
 out vec3 fragNormal;
 out vec4 fragColor;
@@ -25,7 +27,7 @@ void main()
 	vec4 worldPos = transformMatrix * vec4( aPos, 1. );
     gl_Position = pvm * worldPos;
     
-    fragColor = vec4( aColor, 1. );
+    fragColor = vec4( aColor, alpha );
     
     fragPos = vec3( vm * vec4( worldPos.xyz, 1.) );
 

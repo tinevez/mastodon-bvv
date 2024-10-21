@@ -55,7 +55,7 @@ public class BvvRenderSettings implements Style< BvvRenderSettings >
 
 	public static final int DEFAULT_SELECTION_COLOR = Color.MAGENTA.getRGB();
 
-	public static final double DEFAULT_ALPHA = 0.8;
+	public static final double DEFAULT_ALPHA = 1;
 
 	public static final ShaderStyle DEFAULT_STYLE = ShaderStyle.CLASSIC;
 
